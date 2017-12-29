@@ -1,6 +1,9 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+#The format of the box, box_url, use of hostmanager plugin, sshfs, dnf caching, and more
+#all come from https://fedoraproject.org/wiki/Vagrant
+
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
 # configures the configuration version (we support older styles for
 # backwards compatibility). Please don't change it unless you know what
@@ -12,12 +15,30 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  config.vm.box = "base"
+  #config.vm.box = "fedora/27-cloud-base"
+  #config.vm.box_url = "https://download.fedoraproject.org/pub/fedora/linux/releases"\
+  #                    "/27/CloudImages/x86_64/images/Fedora-Cloud-Base-Vagrant"\
+  #                    "-27-1.6.x86_64.vagrant-libvirt.box"
+  config.vm.box = "fedora/26-cloud-base"
+  config.vm.box_url = "http://mirror.us.leaseweb.net/fedora/linux/releases"\
+                      "/26/CloudImages/x86_64/images/"\
+                      "Fedora-Cloud-Base-Vagrant-26-1.5.x86_64.vagrant-libvirt.box"
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
-  # config.vm.box_check_update = false
+  config.vm.box_check_update = false
+
+  # This is an optional plugin that, if installed, updates the host's /etc/hosts
+  # file with the hostname of the guest VM. In Fedora it is packaged as
+  # ``vagrant-hostmanager``
+  # This removes the need to care about or remember the vm's ip
+  if Vagrant.has_plugin?("vagrant-hostmanager")
+      config.hostmanager.enabled = true
+      config.hostmanager.manage_host = true
+      config.hostmanager.aliases = %w(artifactory gitbucket jenkins vagrant-vm-1)
+  end
+
 
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
@@ -45,17 +66,30 @@ Vagrant.configure("2") do |config|
   # argument is a set of non-required options.
   # config.vm.synced_folder "../data", "/vagrant_data"
 
+  # To cache update packages (which is helpful if frequently doing `vagrant destroy && vagrant up`)
+  # you can create a local directory and share it to the guest's DNF cache. Uncomment the lines below
+  # to create and use a dnf cache directory
+  #
+  Dir.mkdir('.dnf-cache') unless File.exists?('.dnf-cache')
+  config.vm.synced_folder ".dnf-cache", "/var/cache/dnf", type: "sshfs", sshfs_opts_append: "-o nonempty"
+  Dir.mkdir('gitbucket') unless File.exists?('gitbucket')
+  config.vm.synced_folder "gitbucket", "/var/opt/gitbucket", type: "sshfs", sshfs_opts_append: "-o nonempty"
+
+
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
   # Example for VirtualBox:
   #
-  # config.vm.provider "virtualbox" do |vb|
+  config.vm.provider "libvirt" do |lv|
   #   # Display the VirtualBox GUI when booting the machine
   #   vb.gui = true
   #
   #   # Customize the amount of memory on the VM:
   #   vb.memory = "1024"
-  # end
+    lv.memory = "2048"
+    lv.cpu_mode = "host-passthrough"
+
+  end
   #
   # View the documentation for the provider you are using for more
   # information on available options.
@@ -63,8 +97,25 @@ Vagrant.configure("2") do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
-  # config.vm.provision "shell", inline: <<-SHELL
-  #   apt-get update
-  #   apt-get install -y apache2
-  # SHELL
+  #
+  # This shell updates the VM, grabs and install artifactory, jenkins, and gitbucket
+  config.vm.provision "shell", inline: <<-SHELL
+#    dnf -y update
+    dnf install -y wget
+#    dnf install -y mysql
+    wget -nc https://bintray.com/jfrog/artifactory-rpms/rpm -O bintray-jfrog-artifactory-rpms.repo
+    sudo mv bintray-jfrog-artifactory-rpms.repo /etc/yum.repos.d/
+    sudo yum -y install jfrog-artifactory-oss
+#    /opt/jfrog/artifactory/bin/configure.mysql.sh    
+    dnf install -y jenkins
+    dnf install -y vim
+    #setup for gitbucket
+    dnf install -y fedora-packager fedora-review
+    sudo usermod -aG mock vagrant
+    newgrp mock
+    cd /var/opt/gitbucket
+    fedpkg --release f26 local
+    sudo rpm -i /var/opt/gitbucket/noarch/gitbucket*.noarch.rpm 
+    dnf remove -y fedora-packager fedora-review
+  SHELL
 end
