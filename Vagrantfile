@@ -98,24 +98,54 @@ Vagrant.configure("2") do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   #
-  # This shell updates the VM, grabs and install artifactory, jenkins, and gitbucket
+  #This increases the startup timeout to 120 for artifactory's tomcat install
+  config.vm.provision "shell", inline: "export START_TMO=120",run: "always"
+  # This shell updates the VM, grabs and install artifactory, jenkins, gitbucket, creates a 4GB swap (for my slow server)
   config.vm.provision "shell", inline: <<-SHELL
+    #Create swap space if it doesn't exist
+    if [ ! -f  /swapfile ]; then
+      mkdir /swapfile;
+      #4GB of swapspace = 4096000
+      dd if=/dev/zero of=/swapfile bs=1024 count=4096000;
+      chmod 0600 /swapfile;
+      #make the swapspace file system
+      mkswap /swapfile;
+      #add the swapspace to /etc/fstab so it's always available on boot.
+      sudo sed -i '$a /swapfile swap swap defaults 0 0' /etc/fstab;
+      #Turn swap on so that it's immediately available
+      swapon /swapfile;
+    fi
+
 #    dnf -y update
     dnf install -y wget
 #    dnf install -y mysql
     wget -nc https://bintray.com/jfrog/artifactory-rpms/rpm -O bintray-jfrog-artifactory-rpms.repo
     sudo mv bintray-jfrog-artifactory-rpms.repo /etc/yum.repos.d/
     sudo yum -y install jfrog-artifactory-oss
-#    /opt/jfrog/artifactory/bin/configure.mysql.sh    
+    #/opt/jfrog/artifactory/bin/configure.mysql.sh    
     dnf install -y jenkins
     dnf install -y vim
+  
     #setup for gitbucket
-    dnf install -y fedora-packager fedora-review
+    sudo dnf install -y fedora-packager fedora-review
     sudo usermod -aG mock vagrant
     newgrp mock
+    
+    #grab the fedora core id number from the operating system
+    #We are going to use that number to create/tag our rpm so
+    #that we can move between versions of virtualization without ill effect
+    source /etc/os-release
+    echo "Using Fedora Core "$VERSION_ID
     cd /var/opt/gitbucket
-    fedpkg --release f26 local
-    sudo rpm -i /var/opt/gitbucket/noarch/gitbucket*.noarch.rpm 
+    fedpkg --release f${VERSION_ID} local
+    sudo rpm -i /var/opt/gitbucket/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
     dnf remove -y fedora-packager fedora-review
+    sudo systemctl enable jenkins
+    sudo systemctl enable artifactory
+    sudo systemctl enable gitbucket
+    sudo systemctl start jenkins
+    sudo systemctl start gitbucket
+    sudo systemctl start artifactory
+
   SHELL
 end
