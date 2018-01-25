@@ -36,7 +36,7 @@ Vagrant.configure("2") do |config|
   if Vagrant.has_plugin?("vagrant-hostmanager")
       config.hostmanager.enabled = true
       config.hostmanager.manage_host = true
-      config.hostmanager.aliases = %w(artifactory gitbucket jenkins vagrant-vm-1)
+      config.hostmanager.aliases = %w(artifactory.local.com gitbucket.local.com jenkins.local.com toplevel.local.com)
   end
 
 
@@ -74,6 +74,8 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder ".dnf-cache", "/var/cache/dnf", type: "sshfs", sshfs_opts_append: "-o nonempty"
   Dir.mkdir('gitbucket') unless File.exists?('gitbucket')
   config.vm.synced_folder "gitbucket", "/var/opt/gitbucket", type: "sshfs", sshfs_opts_append: "-o nonempty"
+  Dir.mkdir('etc') unless File.exists?('etc')
+  config.vm.synced_folder ".", "/vagrant", type: "sshfs", sshfs_opts_append: "-o nonempty"
 
 
   # Provider-specific configuration so you can fine-tune various
@@ -102,11 +104,16 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: "export START_TMO=120",run: "always"
   # This shell updates the VM, grabs and install artifactory, jenkins, gitbucket, creates a 4GB swap (for my slow server)
   config.vm.provision "shell", inline: <<-SHELL
+    #Artifactory on my slowpoke server needs more than 1 minute to start
+    #START_TMO is adjusted in this environment file.
+    cp /vagrant/etc/environment /etc/environment
+    source /etc/environment
+    
     #Create swap space if it doesn't exist
     if [ ! -f  /swapfile ]; then
-      mkdir /swapfile;
-      #4GB of swapspace = 4096000
-      dd if=/dev/zero of=/swapfile bs=1024 count=4096000;
+      touch /swapfile;
+      #4GB of swapspace 4 * 2^20 = 4194304
+      dd if=/dev/zero of=/swapfile bs=1024 count=4194304;
       chmod 0600 /swapfile;
       #make the swapspace file system
       mkswap /swapfile;
@@ -116,16 +123,20 @@ Vagrant.configure("2") do |config|
       swapon /swapfile;
     fi
 
+
 #    dnf -y update
     dnf install -y wget
 #    dnf install -y mysql
     wget -nc https://bintray.com/jfrog/artifactory-rpms/rpm -O bintray-jfrog-artifactory-rpms.repo
     sudo mv bintray-jfrog-artifactory-rpms.repo /etc/yum.repos.d/
-    sudo yum -y install jfrog-artifactory-oss
+    sudo dnf -y install jfrog-artifactory-oss
+    chown -R artifactory:artifactory /var/opt/jfrog/run/
+    rm /var/opt/jfrog/run/artifactory.pid
     #/opt/jfrog/artifactory/bin/configure.mysql.sh    
     dnf install -y jenkins
     dnf install -y vim
-  
+    dnf install -y links
+
     #setup for gitbucket
     sudo dnf install -y fedora-packager fedora-review
     sudo usermod -aG mock vagrant
@@ -139,13 +150,30 @@ Vagrant.configure("2") do |config|
     cd /var/opt/gitbucket
     fedpkg --release f${VERSION_ID} local
     sudo rpm -i /var/opt/gitbucket/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
-    dnf remove -y fedora-packager fedora-review
+#    dnf remove -y fedora-packager fedora-review
     sudo systemctl enable jenkins
     sudo systemctl enable artifactory
     sudo systemctl enable gitbucket
-    sudo systemctl start jenkins
-    sudo systemctl start gitbucket
-    sudo systemctl start artifactory
+
+    #Install and setup reverse proxy with nginx
+    #Artifactory's X-Artifactory-Override-Base-Url only works in 
+    #nginx v1.3.9 or higher. The normal dnf install method won't work
+    #First Let's grab dependencies for nginx
+    #rpm -Uvh http://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-stable.noarch.rpm 
+    #rpm -Uvh http://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-stable.noarch.rpm
+    #This dependency uses the version_id 
+    #rpm -Uvh http://rpms.famillecollet.com/fedora/remi-release-$VERSION_ID.rpm
+
+    #copy the repo file into the operating system so that we can pull the right version of software
+    #cp /vagrant/etc/yum.repos.d/* /etc/yum.repos.d/
+
+    #install nginx with php
+    #dnf --enablerepo=remi --enablerepo=remi-php72 install nginx php-fpm php-common
+    dnf -y install nginx
+    #Setting this SE Linux policy allows http connect inside the host
+    sudo setsebool -P httpd_can_network_connect true
+    cp /vagrant/etc/nginx/conf.d/* /etc/nginx/conf.d/
+    sudo systemctl enable nginx
 
   SHELL
 end
