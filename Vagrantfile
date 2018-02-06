@@ -36,9 +36,17 @@ Vagrant.configure("2") do |config|
   if Vagrant.has_plugin?("vagrant-hostmanager")
       config.hostmanager.enabled = true
       config.hostmanager.manage_host = true
-      config.hostmanager.aliases = %w(artifactory.local.com gitbucket.local.com jenkins.local.com toplevel.local.com)
+      config.hostmanager.aliases = %w(nexus.local.com gitbucket.local.com jenkins.local.com toplevel.local.com)
   end
+  
+#  config.vm.network :public_network
 
+  #For nexus
+  config.vm.network "forwarded_port", guest: 8081, host: 8081, protocol: "tcp", auto_correct: true
+  #For gitbucket
+  config.vm.network "forwarded_port", guest: 8082, host: 8082, protocol: "tcp", auto_correct: true
+  #For jenkins
+  config.vm.network "forwarded_port", guest: 8080, host: 8080, protocol: "tcp", auto_correct: true
 
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
@@ -65,15 +73,25 @@ Vagrant.configure("2") do |config|
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
   # config.vm.synced_folder "../data", "/vagrant_data"
-
   # To cache update packages (which is helpful if frequently doing `vagrant destroy && vagrant up`)
   # you can create a local directory and share it to the guest's DNF cache. Uncomment the lines below
   # to create and use a dnf cache directory
   #
   Dir.mkdir('.dnf-cache') unless File.exists?('.dnf-cache')
-  config.vm.synced_folder ".dnf-cache", "/var/cache/dnf", type: "sshfs", sshfs_opts_append: "-o nonempty"
+  config.vm.synced_folder ".dnf-cache", "/var/cache/dnf", owner: "root", group: "root"
+  
+  NEXUS_UID = 10011
+  NEXUS_GID = 10011
+  Dir.mkdir('nexus') unless File.exists?('nexus')
+  config.vm.synced_folder "nexus", "/opt/nexus", owner: NEXUS_UID, group: NEXUS_GID
+  Dir.mkdir('sonatype-work') unless File.exists?('sonatype-work')
+  config.vm.synced_folder "sonatype-work", "/var/opt/sonatype-work", owner: NEXUS_UID, group: NEXUS_GID
+  
+  GITBUCKET_UID = 10001
+  GITBUCKET_GID = 10001
   Dir.mkdir('gitbucket') unless File.exists?('gitbucket')
-  config.vm.synced_folder "gitbucket", "/var/opt/gitbucket", type: "sshfs", sshfs_opts_append: "-o nonempty"
+  config.vm.synced_folder "gitbucket", "/var/opt/gitbucket", owner: GITBUCKET_UID, group: GITBUCKET_GID
+
   Dir.mkdir('etc') unless File.exists?('etc')
   config.vm.synced_folder ".", "/vagrant", type: "sshfs", sshfs_opts_append: "-o nonempty"
 
@@ -100,15 +118,23 @@ Vagrant.configure("2") do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   #
-  #This increases the startup timeout to 120 for artifactory's tomcat install
-  config.vm.provision "shell", inline: "export START_TMO=120",run: "always"
-  # This shell updates the VM, grabs and install artifactory, jenkins, gitbucket, creates a 4GB swap (for my slow server)
+  
+  # This shell updates the VM, grabs and installs nexus sonatype, jenkins, gitbucket, creates a 4GB swap (for my slow server)
   config.vm.provision "shell", inline: <<-SHELL
     #Artifactory on my slowpoke server needs more than 1 minute to start
     #START_TMO is adjusted in this environment file.
     cp /vagrant/etc/environment /etc/environment
     source /etc/environment
     
+    # Start by creating new user and group, you will prompted do add additional info.
+    groupadd -g 10011 nexus
+    useradd -c 'Nexus Repo User' -d /opt/nexus -g nexus -u 10011 -s /bin/bash nexus
+    passwd -d nexus
+    # Start by creating new user and group, you will prompted do add additional info.
+    groupadd -g 10001 gitbucket
+    useradd -c 'Gitbucket UseR' -d /var/opt/gitbucket -g nexus -u 10001 -s /bin/bash gitbucket
+
+
     #Create swap space if it doesn't exist
     if [ ! -f  /swapfile ]; then
       touch /swapfile;
@@ -123,37 +149,82 @@ Vagrant.configure("2") do |config|
       swapon /swapfile;
     fi
 
-
-#    dnf -y update
     dnf install -y wget
-#    dnf install -y mysql
-    wget -nc https://bintray.com/jfrog/artifactory-rpms/rpm -O bintray-jfrog-artifactory-rpms.repo
-    sudo mv bintray-jfrog-artifactory-rpms.repo /etc/yum.repos.d/
-    sudo dnf -y install jfrog-artifactory-oss
-    chown -R artifactory:artifactory /var/opt/jfrog/run/
-    rm /var/opt/jfrog/run/artifactory.pid
-    #/opt/jfrog/artifactory/bin/configure.mysql.sh    
     dnf install -y jenkins
     dnf install -y vim
     dnf install -y links
+    #To allow changes to security policy for nexus
+    dnf install -y policycoreutils-devel
 
     #setup for gitbucket
-    sudo dnf install -y fedora-packager fedora-review
-    sudo usermod -aG mock vagrant
-    newgrp mock
+    if [ ! -f /var/opt/gitbucket/noarch/gitbucket*fc$VERSION_ID.noarch.rpm ]; then
+      sudo dnf install -y fedora-packager fedora-review
+      sudo usermod -aG mock vagrant
+      newgrp mock
     
-    #grab the fedora core id number from the operating system
-    #We are going to use that number to create/tag our rpm so
-    #that we can move between versions of virtualization without ill effect
-    source /etc/os-release
-    echo "Using Fedora Core "$VERSION_ID
-    cd /var/opt/gitbucket
-    fedpkg --release f${VERSION_ID} local
+      #grab the fedora core id number from the operating system
+      #We are going to use that number to create/tag our rpm so
+      #that we can move between versions of virtualization without ill effect
+      source /etc/os-release
+      echo "Using Fedora Core "$VERSION_ID
+      cd /var/opt/gitbucket
+      fedpkg --release f${VERSION_ID} local
+    fi
     sudo rpm -i /var/opt/gitbucket/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
 #    dnf remove -y fedora-packager fedora-review
     sudo systemctl enable jenkins
     sudo systemctl enable artifactory
     sudo systemctl enable gitbucket
+
+    #####################
+    #Setup Nexus
+    #####################
+    #
+    #change to work dir
+    cd /tmp  
+    sudo rm -f latest-unix.tar.gz*
+    #Then download fresh version of nexus. In my case v3
+    wget https://download.sonatype.com/nexus/3/latest-unix.tar.gz
+    sudo sh -c 'echo "export NEXUS_HOME=/opt/nexus" >> /etc/profile.d/nexus.sh'
+    source /etc/profile.d/nexus.sh
+    #
+    #change to local
+    cd $NEXUS_HOME/..
+    #
+    #Extract nexus-3 directory from archive. No need of extracting working dir.
+    sudo tar xzvf /tmp/latest-unix.tar.gz
+    sudo ln -s /opt/nexus-3*/ /opt/nexus/  
+    #Nexus needs at least 65536 available file descriptors let's change that here.
+    sudo echo '* - nofile 65536' >> /etc/security/limits.conf
+    sudo ln -s $NEXUS_HOME/bin/nexus /etc/init.d/nexus
+    #sudo chmod 755 /etc/init.d/nexus
+    #sudo chown root /etc/init.d/nexus
+    sudo chown -h nexus:nexus $NEXUS_HOME
+    sudo chown -RH nexus:nexus $NEXUS_HOME
+    cd $NEXUS_HOME/..
+    sudo chown -h nexus:nexus sonatype-work
+    sudo chown -RH nexus:nexus sonatype-work
+    sudo chmod -R 777 sonatype-work
+    #
+    # Creating new symlink to avoid version in path.
+    # sudo echo 'run_as_user="nexus"' > $NEXUS_HOME/bin/nexus.rc
+    su - nexus -c 'echo run_as_user=nexus > ~/bin/nexus.rc' 
+
+    sudo cp /vagrant/etc/systemd/system/nexus.service /etc/systemd/system/nexus.service
+    sudo semanage permissive -a usr_t
+    sudo semanage permissive -a var_t
+    sudo semanage permissive -a init_t
+    cd /etc/init.d
+    sudo chkconfig --add nexus
+    sudo chkconfig --levels 345 nexus on
+    sudo service nexus start
+    cd ~
+    #This will likely fail...pipe the failures into MyNexus security module and then activate
+    sudo grep nexus /var/log/audit/audit.log | sudo audit2allow -a -M MyNexus
+    sudo semodule -i MyNexus.pp
+    sudo systemctl daemon-reload
+    sudo systemctl enable nexus.service
+    sudo systemctl start nexus.service
 
     #Install and setup reverse proxy with nginx
     #Artifactory's X-Artifactory-Override-Base-Url only works in 
@@ -174,6 +245,7 @@ Vagrant.configure("2") do |config|
     sudo setsebool -P httpd_can_network_connect true
     cp /vagrant/etc/nginx/conf.d/* /etc/nginx/conf.d/
     sudo systemctl enable nginx
+    sudo systemctl start nginx
 
   SHELL
 end
