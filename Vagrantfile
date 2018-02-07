@@ -78,7 +78,7 @@ Vagrant.configure("2") do |config|
   # to create and use a dnf cache directory
   #
   Dir.mkdir('.dnf-cache') unless File.exists?('.dnf-cache')
-  config.vm.synced_folder ".dnf-cache", "/var/cache/dnf", owner: "root", group: "root"
+  config.vm.synced_folder ".dnf-cache", "/var/cache/dnf", type: "sshfs", sshfs_opts_append: "-o nonempty"
   
   NEXUS_UID = 10011
   NEXUS_GID = 10011
@@ -124,7 +124,9 @@ Vagrant.configure("2") do |config|
     #Artifactory on my slowpoke server needs more than 1 minute to start
     #START_TMO is adjusted in this environment file.
     cp /vagrant/etc/environment /etc/environment
+    cp -f /vagrant/etc/dnf/dnf.conf /etc/dnf/dnf.conf
     source /etc/environment
+
     
     # Start by creating new user and group, you will prompted do add additional info.
     groupadd -g 10011 nexus
@@ -193,7 +195,7 @@ Vagrant.configure("2") do |config|
     #
     #Extract nexus-3 directory from archive. No need of extracting working dir.
     sudo tar xzvf /tmp/latest-unix.tar.gz
-    sudo ln -s /opt/nexus-3*/ /opt/nexus/  
+    sudo ln -s $(readlink -f $(find . -maxdepth 1  -type d -name "nexus-*")) /opt/nexus
     #Nexus needs at least 65536 available file descriptors let's change that here.
     sudo echo '* - nofile 65536' >> /etc/security/limits.conf
     sudo ln -s $NEXUS_HOME/bin/nexus /etc/init.d/nexus
@@ -201,14 +203,14 @@ Vagrant.configure("2") do |config|
     #sudo chown root /etc/init.d/nexus
     sudo chown -h nexus:nexus $NEXUS_HOME
     sudo chown -RH nexus:nexus $NEXUS_HOME
-    cd $NEXUS_HOME/..
+    cd $(dirname $NEXUS_HOME)
     sudo chown -h nexus:nexus sonatype-work
     sudo chown -RH nexus:nexus sonatype-work
     sudo chmod -R 777 sonatype-work
     #
     # Creating new symlink to avoid version in path.
     # sudo echo 'run_as_user="nexus"' > $NEXUS_HOME/bin/nexus.rc
-    su - nexus -c 'echo run_as_user=nexus > ~/bin/nexus.rc' 
+    su - nexus -c 'echo "run_as_user=nexus" > /opt/nexus/bin/nexus.rc' 
 
     sudo cp /vagrant/etc/systemd/system/nexus.service /etc/systemd/system/nexus.service
     sudo semanage permissive -a usr_t
