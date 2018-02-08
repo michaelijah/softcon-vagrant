@@ -191,11 +191,10 @@ Vagrant.configure("2") do |config|
     source /etc/profile.d/nexus.sh
     #
     #change to local
-    cd $NEXUS_HOME/..
+    cd $(dirname $NEXUS_HOME)
     #
-    #Extract nexus-3 directory from archive. No need of extracting working dir.
-    sudo tar xzvf /tmp/latest-unix.tar.gz
-    sudo ln -s $(readlink -f $(find . -maxdepth 1  -type d -name "nexus-*")) /opt/nexus
+    #Extract the files out of tar but change nexus-3.x.x to simply nexus in the folder name
+    sudo tar -xvf /tmp/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,'
     #Nexus needs at least 65536 available file descriptors let's change that here.
     sudo echo '* - nofile 65536' >> /etc/security/limits.conf
     sudo ln -s $NEXUS_HOME/bin/nexus /etc/init.d/nexus
