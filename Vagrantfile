@@ -37,16 +37,29 @@ Vagrant.configure("2") do |config|
       config.hostmanager.enabled = true
       config.hostmanager.manage_host = true
       config.hostmanager.aliases = %w(nexus.local.com gitbucket.local.com jenkins.local.com toplevel.local.com)
+      config.hostmanager.ignore_private_ip = false
   end
   
-#  config.vm.network :public_network
+  config.vm.network :private_network, ip: "192.168.56.101"
+
+#  config.vm.provision "shell",
+#	 run: "always",
+#	 inline: "route -A inet6 add default gw 192.168.0.30"
+  # default router ipv6
+#  config.vm.provision "shell",
+#         run: "always",
+#         inline: "route -A inet6 add default gw fc00::1 enp3s0"
+  #delete default gw on eth0
+#  config.vm.provision "shell",
+#         run: "always",
+#         inline: "eval `route -n | awk '{ if ($8 ==\"enp3s0\" && $2 != \"0.0.0.0\") print \"route del default gw \" $2; }'`" 
 
   #For nexus
-  config.vm.network "forwarded_port", guest: 8081, host: 8081, protocol: "tcp", auto_correct: true
+  config.vm.network "forwarded_port", guest: 8081, host: 8081, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0"
   #For gitbucket
-  config.vm.network "forwarded_port", guest: 8082, host: 8082, protocol: "tcp", auto_correct: true
+  config.vm.network "forwarded_port", guest: 8082, host: 8082, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0" 
   #For jenkins
-  config.vm.network "forwarded_port", guest: 8080, host: 8080, protocol: "tcp", auto_correct: true
+  config.vm.network "forwarded_port", guest: 8080, host: 8080, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0" 
 
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
@@ -82,15 +95,19 @@ Vagrant.configure("2") do |config|
   
   NEXUS_UID = 10011
   NEXUS_GID = 10011
+  Dir.mkdir('nexus-install') unless File.exists?('nexus-install')
+  config.vm.synced_folder "nexus-install", "/var/lib/nexus-install", type: "sshfs", sshfs_opts_append: "-o uid=10011,gid=10011,nonempty"
   Dir.mkdir('nexus') unless File.exists?('nexus')
-  config.vm.synced_folder "nexus", "/opt/nexus", owner: NEXUS_UID, group: NEXUS_GID
+  config.vm.synced_folder "nexus", "/opt/nexus", type: "sshfs", sshfs_opts_append: "-o uid=10011,gid=10011,nonempty"
   Dir.mkdir('sonatype-work') unless File.exists?('sonatype-work')
-  config.vm.synced_folder "sonatype-work", "/var/opt/sonatype-work", owner: NEXUS_UID, group: NEXUS_GID
+  config.vm.synced_folder "sonatype-work", "/opt/sonatype-work", type: "sshfs", sshfs_opts_append: "-o uid=10011,gid=10011,nonempty"
   
   GITBUCKET_UID = 10001
   GITBUCKET_GID = 10001
   Dir.mkdir('gitbucket') unless File.exists?('gitbucket')
-  config.vm.synced_folder "gitbucket", "/var/opt/gitbucket", owner: GITBUCKET_UID, group: GITBUCKET_GID
+  config.vm.synced_folder "gitbucket", "/var/lib/gitbucket", type: "sshfs", sshfs_opts_append: "-o uid=10001,gid=10001,nonempty"
+  Dir.mkdir('gitbucket-install') unless File.exists?('gitbucket-install')
+  config.vm.synced_folder "gitbucket-install", "/var/lib/gitbucket-install", type: "sshfs", sshfs_opts_append: "-o uid=10001,gid=10001,nonempty"
 
   Dir.mkdir('etc') unless File.exists?('etc')
   config.vm.synced_folder ".", "/vagrant", type: "sshfs", sshfs_opts_append: "-o nonempty"
@@ -134,7 +151,7 @@ Vagrant.configure("2") do |config|
     passwd -d nexus
     # Start by creating new user and group, you will prompted do add additional info.
     groupadd -g 10001 gitbucket
-    useradd -c 'Gitbucket UseR' -d /var/opt/gitbucket -g nexus -u 10001 -s /bin/bash gitbucket
+    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u 10001 -s /bin/bash gitbucket
 
 
     #Create swap space if it doesn't exist
@@ -159,7 +176,7 @@ Vagrant.configure("2") do |config|
     dnf install -y policycoreutils-devel
 
     #setup for gitbucket
-    if [ ! -f /var/opt/gitbucket/noarch/gitbucket*fc$VERSION_ID.noarch.rpm ]; then
+    if [ ! -f /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm ]; then
       sudo dnf install -y fedora-packager fedora-review
       sudo usermod -aG mock vagrant
       newgrp mock
@@ -169,43 +186,46 @@ Vagrant.configure("2") do |config|
       #that we can move between versions of virtualization without ill effect
       source /etc/os-release
       echo "Using Fedora Core "$VERSION_ID
-      cd /var/opt/gitbucket
+      cd /var/lib/gitbucket-install
       fedpkg --release f${VERSION_ID} local
+      sudo rpm -i /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
     fi
-    sudo rpm -i /var/opt/gitbucket/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
-#    dnf remove -y fedora-packager fedora-review
     sudo systemctl enable jenkins
-    sudo systemctl enable artifactory
     sudo systemctl enable gitbucket
+
 
     #####################
     #Setup Nexus
     #####################
     #
-    #change to work dir
-    cd /tmp  
-    sudo rm -f latest-unix.tar.gz*
-    #Then download fresh version of nexus. In my case v3
-    wget https://download.sonatype.com/nexus/3/latest-unix.tar.gz
+    if [ ! -f /var/lib/nexus-install/latest-unix.tar.gz ]; then
+       #change to work dir
+       cd /var/lib/nexus-install/
+       #Then download fresh version of nexus. In my case v3
+       wget https://download.sonatype.com/nexus/3/latest-unix.tar.gz
+    fi
+
+    if [ "$(ls -A /opt/nexus 2> /dev/null)" == "" ]; then
+       cd $(dirname $NEXUS_HOME)
+       sudo tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,' nexus-*
+    fi
+
+    if [ "$(ls -A /opt/sonatype-work 2> /dev/null)" == "" ]; then
+       cd $(dirname $NEXUS_HOME)
+       sudo tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,'
+    fi
+
     sudo sh -c 'echo "export NEXUS_HOME=/opt/nexus" >> /etc/profile.d/nexus.sh'
     source /etc/profile.d/nexus.sh
     #
     #change to local
-    cd $(dirname $NEXUS_HOME)
+    #cd $(dirname $NEXUS_HOME)
     #
     #Extract the files out of tar but change nexus-3.x.x to simply nexus in the folder name
-    sudo tar -xvf /tmp/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,'
+    #sudo tar -xvf /tmp/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,'
     #Nexus needs at least 65536 available file descriptors let's change that here.
     sudo echo '* - nofile 65536' >> /etc/security/limits.conf
     sudo ln -s $NEXUS_HOME/bin/nexus /etc/init.d/nexus
-    #sudo chmod 755 /etc/init.d/nexus
-    #sudo chown root /etc/init.d/nexus
-    sudo chown -h nexus:nexus $NEXUS_HOME
-    sudo chown -RH nexus:nexus $NEXUS_HOME
-    cd $(dirname $NEXUS_HOME)
-    sudo chown -h nexus:nexus sonatype-work
-    sudo chown -RH nexus:nexus sonatype-work
-    sudo chmod -R 777 sonatype-work
     #
     # Creating new symlink to avoid version in path.
     # sudo echo 'run_as_user="nexus"' > $NEXUS_HOME/bin/nexus.rc
@@ -218,7 +238,7 @@ Vagrant.configure("2") do |config|
     cd /etc/init.d
     sudo chkconfig --add nexus
     sudo chkconfig --levels 345 nexus on
-    sudo service nexus start
+    sudo systemctl enable nexus.service
     cd ~
     #This will likely fail...pipe the failures into MyNexus security module and then activate
     sudo grep nexus /var/log/audit/audit.log | sudo audit2allow -a -M MyNexus
@@ -236,11 +256,8 @@ Vagrant.configure("2") do |config|
     #This dependency uses the version_id 
     #rpm -Uvh http://rpms.famillecollet.com/fedora/remi-release-$VERSION_ID.rpm
 
-    #copy the repo file into the operating system so that we can pull the right version of software
-    #cp /vagrant/etc/yum.repos.d/* /etc/yum.repos.d/
 
     #install nginx with php
-    #dnf --enablerepo=remi --enablerepo=remi-php72 install nginx php-fpm php-common
     dnf -y install nginx
     #Setting this SE Linux policy allows http connect inside the host
     sudo setsebool -P httpd_can_network_connect true
