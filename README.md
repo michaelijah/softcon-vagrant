@@ -4,18 +4,16 @@ A vagrantfile for libvirt fedora-cloud on fedora systems
 
 You'll need to do a couple of things to prep your system for use.
 
-1. Install Vagrant
--sudo dnf install vagrant
-
-1a. Install Vagrant plugins needed by this Vagrantfile
--vagrant plugin install vagrant-sshfs
--vagrant plugin install vagrant-libvirt
--vagrant plugin install vagrant-hostmanager
-
+1. Install Vagrant `sudo dnf install vagrant`
+   1a. Install Vagrant plugins needed by this Vagrantfile
+   * `vagrant plugin install vagrant-sshfs`
+   * `vagrant plugin install vagrant-libvirt`
+   * `vagrant plugin install vagrant-hostmanager`
 2. If you plan on unleashing your creation onto the internet then you'll need to install nginx. Otherwise, you can skip step 2.
--sudo dnf install nginx
+   * sudo dnf install nginx
+   2a. You'll need to setup your nginx as a reverse proxy. Change EXAMPLE and com to match the domain and tld of your website. Save the file to /etc/nginx/conf.d/reverse_proxy.conf (or into your sites-enable/sites-available) hierarchy.
 
-2a. You'll need to setup your nginx as a reverse proxy. Change EXAMPLE and com to match the domain and tld of your website. Save the file to /etc/nginx/conf.d/reverse_proxy.conf (or into your sites-enable/sites-available) hierarchy.
+```
 map $subdomain $subdomain_port {
                default   8081;
                www       8081;
@@ -39,11 +37,9 @@ server {
         }
 
 }
+```
 
-2b. The above example will proxy requests for jenkins.example.com to localhost:8080, nexus.example.com to localhost:8081, etc. Setting up SSL would be similar, I'll leave that as an exercise to the user.
-
-
-
+   2b. The above example will proxy requests for jenkins.example.com to localhost:8080, nexus.example.com to localhost:8081, etc. Setting up SSL would be similar, I'll leave that as an exercise to the user.
 3. You'll need to open the http port on the Host Computer. In fedora, run:  
 
 sudo firewall-cmd --add-service=http --permanent  
