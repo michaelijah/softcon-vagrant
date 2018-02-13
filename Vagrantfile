@@ -36,11 +36,17 @@ Vagrant.configure("2") do |config|
   if Vagrant.has_plugin?("vagrant-hostmanager")
       config.hostmanager.enabled = true
       config.hostmanager.manage_host = true
-      config.hostmanager.aliases = %w(nexus.local.com gitbucket.local.com jenkins.local.com toplevel.local.com)
+      config.hostmanager.aliases = %w(nexus.localdomain gitbucket.localdomain jenkins.localdomain toplevel.localdomain)
       config.hostmanager.ignore_private_ip = false
   end
   
-  config.vm.network :private_network, ip: "192.168.56.101"
+  config.vm.network :private_network, ip:"192.168.122.100" 
+  config.vm.network :public_network, :dev => "virbr0", :mode => "bridge", :type => "bridge"#, ip:"192.168.0.100" 
+  #Ip address of your LAN's router
+  default_router = "192.168.0.1"
+
+  # change/ensure the default route via the local network's WAN router, useful for public_network/bridged mode
+  #config.vm.provision :shell, run: "always", :inline => "ip route delete default 2>&1 >/dev/null || true; ip route add default via #{default_router}"
 
 #  config.vm.provision "shell",
 #	 run: "always",
@@ -60,7 +66,7 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 8082, host: 8082, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0" 
   #For jenkins
   config.vm.network "forwarded_port", guest: 8080, host: 8080, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0" 
-
+  
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
   # accessing "localhost:8080" will access port 80 on the guest machine.
@@ -96,18 +102,24 @@ Vagrant.configure("2") do |config|
   NEXUS_UID = 10011
   NEXUS_GID = 10011
   Dir.mkdir('nexus-install') unless File.exists?('nexus-install')
-  config.vm.synced_folder "nexus-install", "/var/lib/nexus-install", type: "sshfs", sshfs_opts_append: "-o uid=10011,gid=10011,nonempty"
+  config.vm.synced_folder "nexus-install", "/var/lib/nexus-install", type: "sshfs", sshfs_opts_append: "-o uid=#{NEXUS_UID},gid=#{NEXUS_GID},nonempty"
   Dir.mkdir('nexus') unless File.exists?('nexus')
-  config.vm.synced_folder "nexus", "/opt/nexus", type: "sshfs", sshfs_opts_append: "-o uid=10011,gid=10011,nonempty"
+  config.vm.synced_folder "nexus", "/opt/nexus", type: "sshfs", sshfs_opts_append: "-o uid=#{NEXUS_UID},gid=#{NEXUS_GID},nonempty"
   Dir.mkdir('sonatype-work') unless File.exists?('sonatype-work')
-  config.vm.synced_folder "sonatype-work", "/opt/sonatype-work", type: "sshfs", sshfs_opts_append: "-o uid=10011,gid=10011,nonempty"
+  config.vm.synced_folder "sonatype-work", "/opt/sonatype-work", type: "sshfs", sshfs_opts_append: "-o uid=#{NEXUS_UID},gid=#{NEXUS_GID},nonempty"
   
   GITBUCKET_UID = 10001
   GITBUCKET_GID = 10001
   Dir.mkdir('gitbucket') unless File.exists?('gitbucket')
-  config.vm.synced_folder "gitbucket", "/var/lib/gitbucket", type: "sshfs", sshfs_opts_append: "-o uid=10001,gid=10001,nonempty"
+  config.vm.synced_folder "gitbucket", "/var/lib/gitbucket", type: "sshfs", sshfs_opts_append: "-o uid=#{GITBUCKET_UID},gid=#{GITBUCKET_GID},nonempty"
   Dir.mkdir('gitbucket-install') unless File.exists?('gitbucket-install')
-  config.vm.synced_folder "gitbucket-install", "/var/lib/gitbucket-install", type: "sshfs", sshfs_opts_append: "-o uid=10001,gid=10001,nonempty"
+  config.vm.synced_folder "gitbucket-install", "/var/lib/gitbucket-install", type: "sshfs", sshfs_opts_append: "-o uid=#{GITBUCKET_UID},gid=#{GITBUCKET_GID},nonempty"
+
+  JENKINS_UID = 10002 
+  JENKINS_GID = 10002
+  Dir.mkdir('jenkins') unless File.exists?('jenkins')
+  config.vm.synced_folder "jenkins", "/var/lib/jenkins", type: "sshfs", sshfs_opts_append: "-o uid=#{JENKINS_UID},gid=#{JENKINS_GID},nonempty"
+
 
   Dir.mkdir('etc') unless File.exists?('etc')
   config.vm.synced_folder ".", "/vagrant", type: "sshfs", sshfs_opts_append: "-o nonempty"
@@ -146,12 +158,17 @@ Vagrant.configure("2") do |config|
 
     
     # Start by creating new user and group, you will prompted do add additional info.
-    groupadd -g 10011 nexus
-    useradd -c 'Nexus Repo User' -d /opt/nexus -g nexus -u 10011 -s /bin/bash nexus
+    groupadd -g #{NEXUS_GID} nexus
+    useradd -c 'Nexus Repo User' -d /opt/nexus -g nexus -u #{NEXUS_UID} -s /bin/bash nexus
     passwd -d nexus
     # Start by creating new user and group, you will prompted do add additional info.
-    groupadd -g 10001 gitbucket
-    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u 10001 -s /bin/bash gitbucket
+    groupadd -g #{GITBUCKET_GID} gitbucket
+    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u #{GITBUCKET_UID} -s /bin/bash gitbucket
+    #Add a jenkins group and user
+    groupadd -g #{JENKINS_GID} jenkins
+    useradd -c 'Jenkins Continuous Build Server' -d /var/lib/jenkins -g jenkins -u #{JENKINS_UID} -s /sbin/noglin jenkins
+
+
 
 
     #Create swap space if it doesn't exist
@@ -176,7 +193,8 @@ Vagrant.configure("2") do |config|
     dnf install -y policycoreutils-devel
 
     #setup for gitbucket
-    if [ ! -f /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm ]; then
+    source /etc/os-release
+    if [  "$(ls -A /var/lib/gitbucket-install/noarch/gitbucket*rpm 2> /dev/null)" == "" ]; then
       sudo dnf install -y fedora-packager fedora-review
       sudo usermod -aG mock vagrant
       newgrp mock
@@ -184,14 +202,16 @@ Vagrant.configure("2") do |config|
       #grab the fedora core id number from the operating system
       #We are going to use that number to create/tag our rpm so
       #that we can move between versions of virtualization without ill effect
-      source /etc/os-release
       echo "Using Fedora Core "$VERSION_ID
       cd /var/lib/gitbucket-install
       fedpkg --release f${VERSION_ID} local
-      sudo rpm -i /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
     fi
-    sudo systemctl enable jenkins
-    sudo systemctl enable gitbucket
+    
+    if [ "$(ls -A /var/lib/gitbucket 2> /dev/null)" == "" ]; then
+      sudo rpm -i /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
+    else
+      sudo rpm -i --excludepath /var/lib/gitbucket /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
+    fi
 
 
     #####################
@@ -244,8 +264,8 @@ Vagrant.configure("2") do |config|
     sudo grep nexus /var/log/audit/audit.log | sudo audit2allow -a -M MyNexus
     sudo semodule -i MyNexus.pp
     sudo systemctl daemon-reload
-    sudo systemctl enable nexus.service
     sudo systemctl start nexus.service
+    sudo systemctl enable nexus.service
 
     #Install and setup reverse proxy with nginx
     #Artifactory's X-Artifactory-Override-Base-Url only works in 
@@ -262,8 +282,12 @@ Vagrant.configure("2") do |config|
     #Setting this SE Linux policy allows http connect inside the host
     sudo setsebool -P httpd_can_network_connect true
     cp /vagrant/etc/nginx/conf.d/* /etc/nginx/conf.d/
-    sudo systemctl enable nginx
     sudo systemctl start nginx
+    sudo systemctl enable nginx
 
+    sudo systemctl start jenkins
+    sudo systemctl start gitbucket
+    sudo systemctl enable jenkins
+    sudo systemctl enable gitbucket
   SHELL
 end
