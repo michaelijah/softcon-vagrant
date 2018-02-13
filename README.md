@@ -47,4 +47,4 @@ server {
 #sudo firewall-cmd --reload  
 
 #Finally, you'll need to allow httpd to make connections on the Host Computer:  
-#sudo setsebool -P httpd_can_network_connect 1  
+   * `sudo setsebool -P httpd_can_network_connect 1`
