@@ -121,6 +121,9 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder "jenkins", "/var/lib/jenkins", type: "sshfs", sshfs_opts_append: "-o uid=#{JENKINS_UID},gid=#{JENKINS_GID},nonempty"
 
 
+  Dir.mkdir('eatmydata-install') unless File.exists?('eatmydata-install')
+  config.vm.synced_folder "eatmydata-install", "/var/lib/eatmydata-install", type: "sshfs", sshfs_opts_append: "-o nonempty"
+
   Dir.mkdir('etc') unless File.exists?('etc')
   config.vm.synced_folder ".", "/vagrant", type: "sshfs", sshfs_opts_append: "-o nonempty"
 
@@ -170,7 +173,6 @@ Vagrant.configure("2") do |config|
 
 
 
-
     #Create swap space if it doesn't exist
     if [ ! -f  /swapfile ]; then
       touch /swapfile;
@@ -186,6 +188,20 @@ Vagrant.configure("2") do |config|
     fi
 
     dnf install -y wget
+    #Install eatmydata to speed up provisioning process
+    if [ "$(ls -A /var/lib/eatmydata-install 2> /dev/null)" == "" ]; then
+       cd /var/lib/eatmydata-install
+       wget https://launchpad.net/libeatmydata/trunk/release-105/+download/libeatmydata-105.tar.gz
+       sudo tar -xvf /var/lib/eatmydata-install/libeatmydata-105.tar.gz --transform='s,/*libeatmydata-[^/]*/,libeatmydata/,'
+    fi
+    cd /var/lib/eatmydata-install/libeatmydata
+    ./configure
+    make
+    make check
+    sudo make install
+    cd ~
+    sudo echo "alias dnf='eatmydata dnf'" > /root/.bash_aliases
+
     dnf install -y jenkins
     dnf install -y vim
     dnf install -y links
