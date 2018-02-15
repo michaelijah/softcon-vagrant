@@ -1,0 +1,12 @@
+
+Executing(%install): /bin/sh -e /var/tmp/rpm-tmp.Hmuvna
+Processing files: gitbucket-4.21.2-1.fc26.noarch
+Provides: config(gitbucket) = 4.21.2-1.fc26 gitbucket = 4.21.2-1.fc26
+Requires(interp): /bin/sh /bin/sh /bin/sh /bin/sh
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires(pre): /bin/sh
+Requires(post): /bin/sh
+Requires(preun): /bin/sh
+Requires(postun): /bin/sh
+Requires: /bin/bash
+Checking for unpackaged file(s): /usr/lib/rpm/check-files /home/vagrant/rpmbuild/BUILDROOT/gitbucket-4.21.2-1.fc26.x86_64
