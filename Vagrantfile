@@ -188,6 +188,7 @@ Vagrant.configure("2") do |config|
     fi
 
     dnf install -y wget
+    dnf install -y gcc 
     #Install eatmydata to speed up provisioning process
     if [ "$(ls -A /var/lib/eatmydata-install 2> /dev/null)" == "" ]; then
        cd /var/lib/eatmydata-install
@@ -208,9 +209,12 @@ Vagrant.configure("2") do |config|
     #To allow changes to security policy for nexus
     dnf install -y policycoreutils-devel
 
-    #setup for gitbucket
+    #####################
+    #Setup for Gitbucket
+    #####################
+    #
     source /etc/os-release
-    if [ ! -f /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm ]; then then
+    if [ "$(ls -A /var/lib/gitbucket-install/noarch 2> /dev/null)" == "" ]; then
       sudo dnf install -y fedora-packager fedora-review
       sudo usermod -aG mock vagrant
       newgrp mock
@@ -229,6 +233,12 @@ Vagrant.configure("2") do |config|
       sudo rpm -i --excludepath /var/lib/gitbucket /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
     fi
 
+    ###
+    #I don't really like the default h2 database
+    #Let's configure an external database instead
+    ###
+    sudo dnf install -y mysql-server
+    
 
     #####################
     #Setup Nexus
@@ -243,12 +253,12 @@ Vagrant.configure("2") do |config|
 
     if [ "$(ls -A /opt/nexus 2> /dev/null)" == "" ]; then
        cd $(dirname $NEXUS_HOME)
-       sudo tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,' nexus-*
+       su - nexus -c "tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,' nexus-*"
     fi
 
     if [ "$(ls -A /opt/sonatype-work 2> /dev/null)" == "" ]; then
        cd $(dirname $NEXUS_HOME)
-       sudo tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,'
+       su - nexus -c "tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,'"
     fi
 
     sudo sh -c 'echo "export NEXUS_HOME=/opt/nexus" >> /etc/profile.d/nexus.sh'
