@@ -110,8 +110,8 @@ Vagrant.configure("2") do |config|
   
   GITBUCKET_UID = 10001
   GITBUCKET_GID = 10001
-  Dir.mkdir('gitbucket') unless File.exists?('gitbucket')
-  config.vm.synced_folder "gitbucket", "/var/lib/gitbucket", type: "sshfs", sshfs_opts_append: "-o uid=#{GITBUCKET_UID},gid=#{GITBUCKET_GID},nonempty"
+  Dir.mkdir('gitbucket-home') unless File.exists?('gitbucket-home')
+  config.vm.synced_folder "gitbucket-home", "/var/lib/gitbucket", type: "sshfs", sshfs_opts_append: "-o uid=#{GITBUCKET_UID},gid=#{GITBUCKET_GID},nonempty"
   Dir.mkdir('gitbucket-install') unless File.exists?('gitbucket-install')
   config.vm.synced_folder "gitbucket-install", "/var/lib/gitbucket-install", type: "sshfs", sshfs_opts_append: "-o uid=#{GITBUCKET_UID},gid=#{GITBUCKET_GID},nonempty"
 
@@ -160,11 +160,11 @@ Vagrant.configure("2") do |config|
     source /etc/environment
 
     
-    # Start by creating new user and group, you will prompted do add additional info.
+    # Start by creating new user and group.
     groupadd -g #{NEXUS_GID} nexus
     useradd -c 'Nexus Repo User' -d /opt/nexus -g nexus -u #{NEXUS_UID} -s /bin/bash nexus
     passwd -d nexus
-    # Start by creating new user and group, you will prompted do add additional info.
+    # Start by creating new user and group.
     groupadd -g #{GITBUCKET_GID} gitbucket
     useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u #{GITBUCKET_UID} -s /bin/bash gitbucket
     #Add a jenkins group and user
@@ -210,7 +210,7 @@ Vagrant.configure("2") do |config|
 
     #setup for gitbucket
     source /etc/os-release
-    if [  "$(ls -A /var/lib/gitbucket-install/noarch/gitbucket*rpm 2> /dev/null)" == "" ]; then
+    if [ ! -f /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm ]; then then
       sudo dnf install -y fedora-packager fedora-review
       sudo usermod -aG mock vagrant
       newgrp mock
