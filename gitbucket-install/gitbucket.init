@@ -12,7 +12,7 @@
 
 # Default values
 GITBUCKET_HOME=/var/lib/gitbucket
-GITBUCKET_WAR_FILE=/usr/share/gitbucket/lib/gitbucket.war
+GITBUCKET_WAR_FILE=/var/lib/gitbucket-install/gitbucket.war
 
 # Pull in cq settings
 [ -f /etc/sysconfig/gitbucket ] && source /etc/sysconfig/gitbucket # RedHat
