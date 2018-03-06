@@ -40,26 +40,21 @@ Vagrant.configure("2") do |config|
       config.hostmanager.ignore_private_ip = false
   end
   
+  # Create a private network, which allows host-only access to the machine
+  # using a specific IP.
+  # config.vm.network "private_network", ip: "192.168.33.10"
   config.vm.network :private_network, ip:"192.168.122.100" 
-  config.vm.network :public_network, :dev => "virbr0", :mode => "bridge", :type => "bridge"#, ip:"192.168.0.100" 
-  #Ip address of your LAN's router
-  default_router = "192.168.0.1"
+  
+  # Create a public network, which generally matched to bridged network.
+  # Bridged networks make the machine appear as another physical device on
+  # your network.
+  # config.vm.network "public_network"
+  config.vm.network :public_network, :dev => "virbr0", :mode => "bridge", :type => "bridge" 
 
-  # change/ensure the default route via the local network's WAN router, useful for public_network/bridged mode
-  #config.vm.provision :shell, run: "always", :inline => "ip route delete default 2>&1 >/dev/null || true; ip route add default via #{default_router}"
-
-#  config.vm.provision "shell",
-#	 run: "always",
-#	 inline: "route -A inet6 add default gw 192.168.0.30"
-  # default router ipv6
-#  config.vm.provision "shell",
-#         run: "always",
-#         inline: "route -A inet6 add default gw fc00::1 enp3s0"
-  #delete default gw on eth0
-#  config.vm.provision "shell",
-#         run: "always",
-#         inline: "eval `route -n | awk '{ if ($8 ==\"enp3s0\" && $2 != \"0.0.0.0\") print \"route del default gw \" $2; }'`" 
-
+  # Create a forwarded port mapping which allows access to a specific port
+  # within the machine from a port on the host machine. In the example below,
+  # accessing "localhost:8080" will access port 80 on the guest machine.
+  # NOTE: This will enable public access to the opened port
   #For nexus
   config.vm.network "forwarded_port", guest: 8081, host: 8081, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0"
   #For gitbucket
@@ -68,24 +63,9 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 8080, host: 8080, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0" 
   
   # Create a forwarded port mapping which allows access to a specific port
-  # within the machine from a port on the host machine. In the example below,
-  # accessing "localhost:8080" will access port 80 on the guest machine.
-  # NOTE: This will enable public access to the opened port
-  # config.vm.network "forwarded_port", guest: 80, host: 8080
-
-  # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine and only allow access
   # via 127.0.0.1 to disable public access
   # config.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
-
-  # Create a private network, which allows host-only access to the machine
-  # using a specific IP.
-  # config.vm.network "private_network", ip: "192.168.33.10"
-
-  # Create a public network, which generally matched to bridged network.
-  # Bridged networks make the machine appear as another physical device on
-  # your network.
-  # config.vm.network "public_network"
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
@@ -95,7 +75,6 @@ Vagrant.configure("2") do |config|
   # To cache update packages (which is helpful if frequently doing `vagrant destroy && vagrant up`)
   # you can create a local directory and share it to the guest's DNF cache. Uncomment the lines below
   # to create and use a dnf cache directory
-  #
   Dir.mkdir('.dnf-cache') unless File.exists?('.dnf-cache')
   config.vm.synced_folder ".dnf-cache", "/var/cache/dnf", type: "sshfs", sshfs_opts_append: "-o nonempty"
   
@@ -120,6 +99,12 @@ Vagrant.configure("2") do |config|
   Dir.mkdir('jenkins') unless File.exists?('jenkins')
   config.vm.synced_folder "jenkins", "/var/lib/jenkins", type: "sshfs", sshfs_opts_append: "-o uid=#{JENKINS_UID},gid=#{JENKINS_GID},nonempty"
 
+  MYSQL_UID = 27 
+  MYSQL_GID = 27 
+  MYSQL_PASSWORD = 'G!tbuck3t' #This needs to have 1 Capital, 1 lower, 1 number and 1special character...! doesn't seem to work well
+  Dir.mkdir('mysql') unless File.exists?('mysql')
+  #The additional selinux context is crucial for mysql to run in Fedora.
+  config.vm.synced_folder "mysql", "/var/lib/mysql", type: "sshfs", sshfs_opts_append: "-o uid=#{MYSQL_UID},gid=#{MYSQL_GID},nonempty,context=system_u:object_r:mysql_db_t:s0" 
 
   Dir.mkdir('eatmydata-install') unless File.exists?('eatmydata-install')
   config.vm.synced_folder "eatmydata-install", "/var/lib/eatmydata-install", type: "sshfs", sshfs_opts_append: "-o nonempty"
@@ -130,18 +115,22 @@ Vagrant.configure("2") do |config|
 
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
-  # Example for VirtualBox:
   #
   config.vm.provider "libvirt" do |lv|
   #   # Display the VirtualBox GUI when booting the machine
   #   vb.gui = true
   #
   #   # Customize the amount of memory on the VM:
-  #   vb.memory = "1024"
     lv.memory = "2048"
     lv.cpu_mode = "host-passthrough"
-
+    
   end
+  
+  #If the RAM available for VM (lv.memory) is less than 8GB then you should consider
+  #Setting the variable below to 1 to force provisioning script to setup and use swap.
+  #If it is more than 8GB you may be able to set to 0.
+  SETUP_SWAP = 1
+  
   #
   # View the documentation for the provider you are using for more
   # information on available options.
@@ -153,9 +142,11 @@ Vagrant.configure("2") do |config|
   
   # This shell updates the VM, grabs and installs nexus sonatype, jenkins, gitbucket, creates a 4GB swap (for my slow server)
   config.vm.provision "shell", inline: <<-SHELL
-    #Artifactory on my slowpoke server needs more than 1 minute to start
-    #START_TMO is adjusted in this environment file.
+    #If there are any environment variables you want to
+    #Add then place them here
     cp /vagrant/etc/environment /etc/environment
+    #The host-side dnf.conf allows caching to be used
+    #which speeds up subsequent spool-ups
     cp -f /vagrant/etc/dnf/dnf.conf /etc/dnf/dnf.conf
     source /etc/environment
 
@@ -164,20 +155,22 @@ Vagrant.configure("2") do |config|
     groupadd -g #{NEXUS_GID} nexus
     useradd -c 'Nexus Repo User' -d /opt/nexus -g nexus -u #{NEXUS_UID} -s /bin/bash nexus
     passwd -d nexus
-    # Start by creating new user and group.
+    # Creating new user and group.
     groupadd -g #{GITBUCKET_GID} gitbucket
-    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u #{GITBUCKET_UID} -s /bin/bash gitbucket
+    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u #{GITBUCKET_UID} -s /sbin/nologin gitbucket
     #Add a jenkins group and user
     groupadd -g #{JENKINS_GID} jenkins
-    useradd -c 'Jenkins Continuous Build Server' -d /var/lib/jenkins -g jenkins -u #{JENKINS_UID} -s /sbin/noglin jenkins
-
+    useradd -c 'Jenkins Continuous Build Server' -d /var/lib/jenkins -g jenkins -u #{JENKINS_UID} -s /sbin/nologin jenkins
+    #Add a mysql group and user
+    groupadd -g #{MYSQL_GID} mysql
+    useradd -c 'MySQL Server' -d /var/lib/mysql -g mysql -u #{MYSQL_UID} -s /sbin/nologin mysql
 
 
     #Create swap space if it doesn't exist
-    if [ ! -f  /swapfile ]; then
+    if [ ! -f  /swapfile ] && [ #{SETUP_SWAP} -eq 1 ]; then
       touch /swapfile;
-      #4GB of swapspace 4 * 2^20 = 4194304
-      dd if=/dev/zero of=/swapfile bs=1024 count=4194304;
+      #6GB of swapspace 6 * 2^20 = 4194304
+      dd if=/dev/zero of=/swapfile bs=1024 count=6291456;
       chmod 0600 /swapfile;
       #make the swapspace file system
       mkswap /swapfile;
@@ -188,7 +181,7 @@ Vagrant.configure("2") do |config|
     fi
 
     dnf install -y wget
-    dnf install -y gcc 
+    dnf install -y gcc automake autoconf libtool 
     #Install eatmydata to speed up provisioning process
     if [ "$(ls -A /var/lib/eatmydata-install 2> /dev/null)" == "" ]; then
        cd /var/lib/eatmydata-install
@@ -208,6 +201,13 @@ Vagrant.configure("2") do |config|
     dnf install -y links
     #To allow changes to security policy for nexus
     dnf install -y policycoreutils-devel
+
+    sudo semanage permissive -a usr_t
+    sudo semanage permissive -a var_t
+    sudo semanage permissive -a init_t
+    sudo semanage permissive -a fusefs_t
+    sudo semanage permissive -a mysqld_db_t
+    sudo semanage permissive -a mysqld_t
 
     #####################
     #Setup for Gitbucket
@@ -237,8 +237,19 @@ Vagrant.configure("2") do |config|
     #I don't really like the default h2 database
     #Let's configure an external database instead
     ###
-    sudo dnf install -y mysql-server
-    
+    source /etc/os-release
+    sudo dnf install -y http://dev.mysql.com/get/mysql57-community-release-fc$VERSION_ID-10.noarch.rpm
+    sudo dnf install -y mysql-community-server
+
+    sudo systemctl enable mysqld.service
+    sudo systemctl start mysqld.service
+    TEMP_MYSQL_PASSWORD=$(grep -oP '(?<=A temporary password is generated for root@localhost: )(.*)' /var/log/mysqld.log)
+    echo "SET PASSWORD = PASSWORD('#{MYSQL_PASSWORD}');" | mysql -h 127.0.0.1 -u root -p'$TEMP_MYSQL_PASSWORD'
+    echo "create database gitbucket;" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
+    #The next line means that the root and gitbucket user passwords are the same...you can change this or not.
+    echo "grant all privileges on `gitbucket`.* to gitbucket@localhost identified by '#{MYSQL_PASSWORD}';" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
+    echo "flush privileges;" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
+   
 
     #####################
     #Setup Nexus
@@ -278,9 +289,6 @@ Vagrant.configure("2") do |config|
     su - nexus -c 'echo "run_as_user=nexus" > /opt/nexus/bin/nexus.rc' 
 
     sudo cp /vagrant/etc/systemd/system/nexus.service /etc/systemd/system/nexus.service
-    sudo semanage permissive -a usr_t
-    sudo semanage permissive -a var_t
-    sudo semanage permissive -a init_t
     cd /etc/init.d
     sudo chkconfig --add nexus
     sudo chkconfig --levels 345 nexus on

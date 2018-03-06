@@ -7,7 +7,8 @@ Type=forking
 ExecStart=/opt/nexus/bin/nexus start
 ExecStop=/opt/nexus/bin/nexus stop
 User=nexus
-Restart=on-abort
+Restart=always
+RestartSec=30
 
 [Install]
 WantedBy=multi-user.target
