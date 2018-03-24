@@ -231,13 +231,6 @@ Vagrant.configure("2") do |config|
     sudo dnf -y install jenkins
     sudo service jenkins start
     sudo chkconfig jenkins on
-    firewall-cmd --permanent --new-service=jenkins
-    firewall-cmd --permanent --service=jenkins --set-short="Jenkins Service Ports"
-    firewall-cmd --permanent --service=jenkins --set-description="Jenkins service firewalld port exceptions"
-    firewall-cmd --permanent --service=jenkins --add-port=8080/tcp
-    firewall-cmd --permanent --add-service=jenkins
-    firewall-cmd --zone=public --add-service=http --permanent
-    firewall-cmd --reload
 
     dnf install -y vim
     dnf install -y links
@@ -374,7 +367,7 @@ Vagrant.configure("2") do |config|
     sudo systemctl start nginx
 
   SHELL
-  # This shell updates the VM, grabs and installs nexus sonatype, jenkins, gitbucket, creates a 4GB swap (for my slow server)
+  #This really should be implemented as a path-available block in systemd tied to the nfs/bindfs mounts. I don't know how to do that right now. So we'll just restat all the services when vagrant is brought up. 
   config.vm.provision "shell", run: "always", inline: "sudo systemctl restart gitbucket; sudo systemctl restart mysqld; sudo systemctl restart jenkins; sudo systemctl restart nexus;"
 end
 
