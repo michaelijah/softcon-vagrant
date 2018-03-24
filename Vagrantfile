@@ -231,13 +231,6 @@ Vagrant.configure("2") do |config|
     sudo dnf -y install jenkins
     sudo service jenkins start
     sudo chkconfig jenkins on
-    firewall-cmd --permanent --new-service=jenkins
-    firewall-cmd --permanent --service=jenkins --set-short="Jenkins Service Ports"
-    firewall-cmd --permanent --service=jenkins --set-description="Jenkins service firewalld port exceptions"
-    firewall-cmd --permanent --service=jenkins --add-port=8080/tcp
-    firewall-cmd --permanent --add-service=jenkins
-    firewall-cmd --zone=public --add-service=http --permanent
-    firewall-cmd --reload
 
     dnf install -y vim
     dnf install -y links
