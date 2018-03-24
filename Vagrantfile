@@ -177,7 +177,7 @@ Vagrant.configure("2") do |config|
     passwd -d nexus
     # Creating new user and group.
     groupadd -g #{GITBUCKET_GID} gitbucket
-    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u #{GITBUCKET_UID} -s /sbin/nologin gitbucket
+    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u #{GITBUCKET_UID} -s /bin/bash gitbucket
     #Add a jenkins group and user
     groupadd -g #{JENKINS_GID} jenkins
     useradd -c 'Jenkins Continuous Build Server' -d /var/lib/jenkins -g jenkins -u #{JENKINS_UID} -s /sbin/nologin jenkins
