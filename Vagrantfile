@@ -1,6 +1,29 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+# Install vagrant plugin
+# based on https://github.com/hashicorp/vagrant/issues/1874
+# @param: plugin type: Array[String] desc: The desired plugin to install
+def ensure_plugins(plugins)
+  logger = Vagrant::UI::Colored.new
+  result = false
+  plugins.each do |p|
+    pm = Vagrant::Plugin::Manager.new(
+           Vagrant::Plugin::Manager.user_plugins_file
+    )
+    plugin_hash = pm.installed_plugins
+    next if plugin_hash.has_key?(p)
+    result = true
+    logger.warn("Installing plugin #{p}")
+    system("vagrant plugin install #{p}")
+  end
+  if result
+   logger.warn('Reloading vagrant now that plugins are installed')
+   system("vagrant reload")
+   exit
+  end
+end
+                                                       
 #The format of the box, box_url, use of hostmanager plugin, sshfs, dnf caching, and more
 #all come from https://fedoraproject.org/wiki/Vagrant
 
@@ -9,6 +32,8 @@
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 Vagrant.configure("2") do |config|
+  # Install needed plugins
+  ensure_plugins( %w(vagrant-bindfs vagrant-hostmanager vagrant-libvirt vagrant-sshfs))
   # The most common configuration options are documented and commented below.
   # For a complete reference, please see the online documentation at
   # https://docs.vagrantup.com.
@@ -100,7 +125,7 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder "gitbucket-home", "/gitbucket-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
   config.bindfs.bind_folder "/gitbucket-nfs", "/var/lib/gitbucket", :owner => "#{GITBUCKET_UID}", :group => "#{GITBUCKET_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=rwx:o=rwx", :'create-with-perms' => "u=rwx:g=rwx:o=rwx", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
   Dir.mkdir('gitbucket-install') unless File.exists?('gitbucket-install')
-  config.vm.synced_folder "gitbucket-install", "/gitbucket-install-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','all_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
+  config.vm.synced_folder "gitbucket-install", "/gitbucket-install-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
   config.bindfs.bind_folder "/gitbucket-install-nfs", "/var/lib/gitbucket-install", :owner => "#{GITBUCKET_UID}", :group => "#{GITBUCKET_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=rwx:o=rwx", :'create-with-perms' => "u=rwx:g=rwx:o=rwx", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
 
   JENKINS_UID = 10002 
@@ -177,7 +202,8 @@ Vagrant.configure("2") do |config|
     passwd -d nexus
     # Creating new user and group.
     groupadd -g #{GITBUCKET_GID} gitbucket
-    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u #{GITBUCKET_UID} -s /bin/bash gitbucket
+    useradd -c 'Gitbucket UseR' -d /var/lib/gitbucket -g gitbucket -u #{GITBUCKET_UID} -s /bin/nologin gitbucket
+    passwd -d gitbucket
     #Add a jenkins group and user
     groupadd -g #{JENKINS_GID} jenkins
     useradd -c 'Jenkins Continuous Build Server' -d /var/lib/jenkins -g jenkins -u #{JENKINS_UID} -s /sbin/nologin jenkins
