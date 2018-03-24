@@ -44,7 +44,7 @@ Vagrant.configure("2") do |config|
   # using a specific IP.
   # config.vm.network "private_network", ip: "192.168.33.10"
   config.vm.network :private_network, ip:"192.168.122.100" 
-  
+
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
   # your network.
@@ -75,36 +75,39 @@ Vagrant.configure("2") do |config|
   # To cache update packages (which is helpful if frequently doing `vagrant destroy && vagrant up`)
   # you can create a local directory and share it to the guest's DNF cache. Uncomment the lines below
   # to create and use a dnf cache directory
+
+  config.bindfs.skip_validations << :user
+  config.bindfs.skip_validations << :group
+
   Dir.mkdir('.dnf-cache') unless File.exists?('.dnf-cache')
   config.vm.synced_folder ".dnf-cache", "/var/cache/dnf", type: "sshfs", sshfs_opts_append: "-o nonempty"
   
   NEXUS_UID = 10011
   NEXUS_GID = 10011
   Dir.mkdir('nexus-install') unless File.exists?('nexus-install')
-  config.vm.synced_folder "nexus-install", "/var/lib/nexus-install", type: "sshfs", sshfs_opts_append: "-o uid=#{NEXUS_UID},gid=#{NEXUS_GID},nonempty"
+  config.vm.synced_folder "nexus-install", "/nexus-install-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
+  config.bindfs.bind_folder "/nexus-install-nfs", "/var/lib/nexus-install", :owner => "#{NEXUS_UID}", :group => "#{NEXUS_GID}", o: "nonempty"
   Dir.mkdir('nexus') unless File.exists?('nexus')
-  config.vm.synced_folder "nexus", "/opt/nexus", type: "sshfs", sshfs_opts_append: "-o uid=#{NEXUS_UID},gid=#{NEXUS_GID},nonempty"
+  config.vm.synced_folder "nexus", "/nexus-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
+  config.bindfs.bind_folder "/nexus-nfs", "/opt/nexus", :owner => "#{NEXUS_UID}", :group => "#{NEXUS_GID}", o: "nonempty"
   Dir.mkdir('sonatype-work') unless File.exists?('sonatype-work')
-  config.vm.synced_folder "sonatype-work", "/opt/sonatype-work", type: "sshfs", sshfs_opts_append: "-o uid=#{NEXUS_UID},gid=#{NEXUS_GID},nonempty"
+  config.vm.synced_folder "sonatype-work", "/sonatype-work-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
+  config.bindfs.bind_folder "/sonatype-work-nfs", "/opt/sonatype-work", :owner => "#{NEXUS_UID}", :group => "#{NEXUS_GID}", o: "nonempty"
   
   GITBUCKET_UID = 10001
   GITBUCKET_GID = 10001
   Dir.mkdir('gitbucket-home') unless File.exists?('gitbucket-home')
-  config.vm.synced_folder "gitbucket-home", "/var/lib/gitbucket", type: "sshfs", sshfs_opts_append: "-o uid=#{GITBUCKET_UID},gid=#{GITBUCKET_GID},nonempty"
+  config.vm.synced_folder "gitbucket-home", "/gitbucket-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
+  config.bindfs.bind_folder "/gitbucket-nfs", "/var/lib/gitbucket", :owner => "#{GITBUCKET_UID}", :group => "#{GITBUCKET_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=rwx:o=rwx", :'create-with-perms' => "u=rwx:g=rwx:o=rwx", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
   Dir.mkdir('gitbucket-install') unless File.exists?('gitbucket-install')
-  config.vm.synced_folder "gitbucket-install", "/var/lib/gitbucket-install", type: "sshfs", sshfs_opts_append: "-o uid=#{GITBUCKET_UID},gid=#{GITBUCKET_GID},nonempty"
+  config.vm.synced_folder "gitbucket-install", "/gitbucket-install-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','all_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
+  config.bindfs.bind_folder "/gitbucket-install-nfs", "/var/lib/gitbucket-install", :owner => "#{GITBUCKET_UID}", :group => "#{GITBUCKET_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=rwx:o=rwx", :'create-with-perms' => "u=rwx:g=rwx:o=rwx", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
 
   JENKINS_UID = 10002 
   JENKINS_GID = 10002
   Dir.mkdir('jenkins') unless File.exists?('jenkins')
-  config.vm.synced_folder "jenkins", "/var/lib/jenkins", type: "sshfs", sshfs_opts_append: "-o uid=#{JENKINS_UID},gid=#{JENKINS_GID},nonempty"
-
-  MYSQL_UID = 27 
-  MYSQL_GID = 27 
-  MYSQL_PASSWORD = 'G!tbuck3t' #This needs to have 1 Capital, 1 lower, 1 number and 1special character...! doesn't seem to work well
-  Dir.mkdir('mysql') unless File.exists?('mysql')
-  #The additional selinux context is crucial for mysql to run in Fedora.
-  config.vm.synced_folder "mysql", "/var/lib/mysql", type: "sshfs", sshfs_opts_append: "-o uid=#{MYSQL_UID},gid=#{MYSQL_GID},nonempty,context=system_u:object_r:mysql_db_t:s0" 
+  config.vm.synced_folder "jenkins", "/jenkins-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{JENKINS_UID}", 'anongid='"#{JENKINS_GID}"]
+  config.bindfs.bind_folder "/jenkins-nfs", "/var/lib/jenkins", :owner => "#{JENKINS_UID}", :group => "#{JENKINS_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=rwx:o=rwx", :'create-with-perms' => "u=rwx:g=rwx:o=rwx", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
 
   Dir.mkdir('eatmydata-install') unless File.exists?('eatmydata-install')
   config.vm.synced_folder "eatmydata-install", "/var/lib/eatmydata-install", type: "sshfs", sshfs_opts_append: "-o nonempty"
@@ -112,6 +115,20 @@ Vagrant.configure("2") do |config|
   Dir.mkdir('etc') unless File.exists?('etc')
   config.vm.synced_folder ".", "/vagrant", type: "sshfs", sshfs_opts_append: "-o nonempty"
 
+  
+  MYSQL_UID = 27 
+  MYSQL_GID = 27 
+  MYSQL_PASSWORD = 'G|tbuck3t' #This needs to have 1 Capital, 1 lower, 1 number and 1special character...! doesn't seem to work well
+  Dir.mkdir('mysql') unless File.exists?('mysql')
+  config.vm.synced_folder "mysql", "/mysql-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{MYSQL_UID}", 'anongid='"#{MYSQL_GID}"]
+  config.bindfs.bind_folder "/mysql-nfs", "/var/lib/mysql", :owner => "#{MYSQL_UID}", :group => "#{MYSQL_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=:o=", :'create-with-perms' => "u=rwx:g=:o=", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
+  
+
+  case ARGV[0]
+  when "destroy"
+  when "up" 
+  else
+  end
 
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
@@ -150,7 +167,10 @@ Vagrant.configure("2") do |config|
     cp -f /vagrant/etc/dnf/dnf.conf /etc/dnf/dnf.conf
     source /etc/environment
 
-    
+    echo "####################"
+    echo "#Setup users and groups"
+    echo "#####################"
+    echo "#"    
     # Start by creating new user and group.
     groupadd -g #{NEXUS_GID} nexus
     useradd -c 'Nexus Repo User' -d /opt/nexus -g nexus -u #{NEXUS_UID} -s /bin/bash nexus
@@ -167,6 +187,10 @@ Vagrant.configure("2") do |config|
 
 
     #Create swap space if it doesn't exist
+    echo "####################"
+    echo " #Create swap space if it doesnt exist"
+    echo "#####################"
+    echo "#"    
     if [ ! -f  /swapfile ] && [ #{SETUP_SWAP} -eq 1 ]; then
       touch /swapfile;
       #6GB of swapspace 6 * 2^20 = 4194304
@@ -196,23 +220,32 @@ Vagrant.configure("2") do |config|
     cd ~
     sudo echo "alias dnf='eatmydata dnf'" > /root/.bash_aliases
 
-    dnf install -y jenkins
+    echo "####################"
+    echo "#Setup for Jenkins"
+    echo "#####################"
+    echo "#"
+    #dnf install -y jenkins
+    sudo wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+    sudo rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key
+    sudo dnf -y install java
+    sudo dnf -y install jenkins
+    sudo service jenkins start
+    sudo chkconfig jenkins on
+    firewall-cmd --permanent --new-service=jenkins
+    firewall-cmd --permanent --service=jenkins --set-short="Jenkins Service Ports"
+    firewall-cmd --permanent --service=jenkins --set-description="Jenkins service firewalld port exceptions"
+    firewall-cmd --permanent --service=jenkins --add-port=8080/tcp
+    firewall-cmd --permanent --add-service=jenkins
+    firewall-cmd --zone=public --add-service=http --permanent
+    firewall-cmd --reload
+
     dnf install -y vim
     dnf install -y links
-    #To allow changes to security policy for nexus
-    dnf install -y policycoreutils-devel
 
-    sudo semanage permissive -a usr_t
-    sudo semanage permissive -a var_t
-    sudo semanage permissive -a init_t
-    sudo semanage permissive -a fusefs_t
-    sudo semanage permissive -a mysqld_db_t
-    sudo semanage permissive -a mysqld_t
-
-    #####################
-    #Setup for Gitbucket
-    #####################
-    #
+    echo "####################"
+    echo "#Setup for Gitbucket"
+    echo "#####################"
+    echo "#"
     source /etc/os-release
     if [ "$(ls -A /var/lib/gitbucket-install/noarch 2> /dev/null)" == "" ]; then
       sudo dnf install -y fedora-packager fedora-review
@@ -232,6 +265,8 @@ Vagrant.configure("2") do |config|
     else
       sudo rpm -i --excludepath /var/lib/gitbucket /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
     fi
+    sudo systemctl enable gitbucket
+    sudo systemctl start gitbucket
 
     ###
     #I don't really like the default h2 database
@@ -241,20 +276,35 @@ Vagrant.configure("2") do |config|
     sudo dnf install -y http://dev.mysql.com/get/mysql57-community-release-fc$VERSION_ID-10.noarch.rpm
     sudo dnf install -y mysql-community-server
 
-    sudo systemctl enable mysqld.service
-    sudo systemctl start mysqld.service
+    echo "Sleeping 10 seconds to allow mysql to start"
+    sleep 10s
+    sudo systemctl start mysqld
+    sudo systemctl enable mysqld
+    sleep 10s
     TEMP_MYSQL_PASSWORD=$(grep -oP '(?<=A temporary password is generated for root@localhost: )(.*)' /var/log/mysqld.log)
-    echo "SET PASSWORD = PASSWORD('#{MYSQL_PASSWORD}');" | mysql -h 127.0.0.1 -u root -p'$TEMP_MYSQL_PASSWORD'
+    echo "SET PASSWORD = PASSWORD('#{MYSQL_PASSWORD}');" | mysql -h 127.0.0.1 -u root -p"$TEMP_MYSQL_PASSWORD" --connect-expired-password
+    echo "create user gitbucket@127.0.0.1 identified by '#{MYSQL_PASSWORD}';" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
     echo "create database gitbucket;" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
     #The next line means that the root and gitbucket user passwords are the same...you can change this or not.
-    echo "grant all privileges on `gitbucket`.* to gitbucket@localhost identified by '#{MYSQL_PASSWORD}';" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
+    echo "grant all privileges on gitbucket.* to gitbucket@127.0.0.1 identified by '#{MYSQL_PASSWORD}';" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
     echo "flush privileges;" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
    
 
-    #####################
-    #Setup Nexus
-    #####################
-    #
+    #To allow changes to security policy for nexus
+    dnf install -y policycoreutils-devel
+
+    sudo semanage permissive -a usr_t
+    sudo semanage permissive -a var_t
+    sudo semanage permissive -a init_t
+    sudo semanage permissive -a fusefs_t
+    sudo semanage permissive -a mysqld_db_t
+    sudo semanage permissive -a mysqld_t
+
+
+    echo "#####################"
+    echo "#Setup Nexus"
+    echo "#####################"
+    echo "#"
     if [ ! -f /var/lib/nexus-install/latest-unix.tar.gz ]; then
        #change to work dir
        cd /var/lib/nexus-install/
@@ -263,13 +313,17 @@ Vagrant.configure("2") do |config|
     fi
 
     if [ "$(ls -A /opt/nexus 2> /dev/null)" == "" ]; then
-       cd $(dirname $NEXUS_HOME)
-       su - nexus -c "tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,' nexus-*"
+       #cd $(dirname $NEXUS_HOME)
+       #cd ..
+       cd /opt
+       su - nexus -c "tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,' -C /opt nexus-*"
     fi
 
     if [ "$(ls -A /opt/sonatype-work 2> /dev/null)" == "" ]; then
-       cd $(dirname $NEXUS_HOME)
-       su - nexus -c "tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,'"
+       #cd $(dirname $NEXUS_HOME)
+       #cd ..
+       #cd /opt
+       su - nexus -c "tar -xvf /var/lib/nexus-install/latest-unix.tar.gz --transform='s,/*nexus-[^/]*/,nexus/,' -C /opt sonatype-work"
     fi
 
     sudo sh -c 'echo "export NEXUS_HOME=/opt/nexus" >> /etc/profile.d/nexus.sh'
@@ -292,14 +346,14 @@ Vagrant.configure("2") do |config|
     cd /etc/init.d
     sudo chkconfig --add nexus
     sudo chkconfig --levels 345 nexus on
-    sudo systemctl enable nexus.service
+    sudo systemctl start nexus.service
     cd ~
     #This will likely fail...pipe the failures into MyNexus security module and then activate
     sudo grep nexus /var/log/audit/audit.log | sudo audit2allow -a -M MyNexus
     sudo semodule -i MyNexus.pp
     sudo systemctl daemon-reload
-    sudo systemctl start nexus.service
     sudo systemctl enable nexus.service
+    sudo systemctl start nexus.service
 
     #Install and setup reverse proxy with nginx
     #Artifactory's X-Artifactory-Override-Base-Url only works in 
@@ -316,12 +370,12 @@ Vagrant.configure("2") do |config|
     #Setting this SE Linux policy allows http connect inside the host
     sudo setsebool -P httpd_can_network_connect true
     cp /vagrant/etc/nginx/conf.d/* /etc/nginx/conf.d/
-    sudo systemctl start nginx
     sudo systemctl enable nginx
+    sudo systemctl start nginx
 
-    sudo systemctl start jenkins
-    sudo systemctl start gitbucket
-    sudo systemctl enable jenkins
-    sudo systemctl enable gitbucket
   SHELL
+  # This shell updates the VM, grabs and installs nexus sonatype, jenkins, gitbucket, creates a 4GB swap (for my slow server)
+  config.vm.provision "shell", run: "always", inline: "sudo systemctl restart gitbucket; sudo systemctl restart mysqld; sudo systemctl restart jenkins; sudo systemctl restart nexus;"
 end
+
+
