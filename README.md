@@ -9,6 +9,7 @@ You'll need to do a couple of things to prep your system for use.
    * `vagrant plugin install vagrant-sshfs`
    * `vagrant plugin install vagrant-libvirt`
    * `vagrant plugin install vagrant-hostmanager`
+   * `vagrant plugin install vagrant-bindfs`
 2. If you plan on unleashing your creation onto the open internet then you'll need to install nginx. Otherwise, you can skip step 2.
    * sudo dnf install nginx
    * You'll need to setup your nginx as a reverse proxy. Change EXAMPLE and com to match the domain and tld (top-level domain) of your website. Save the text below in a file to /etc/nginx/conf.d/reverse_proxy.conf (or into your sites-enable/sites-available) hierarchy.
