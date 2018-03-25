@@ -10,7 +10,7 @@ THIS VIRTUALIZATION USES NFS. NFS IS ONLY COMPATIBLE WITH A WINDOWS HOST BY USIN
 2. If you plan on unleashing your creation onto the open internet then you'll need to install nginx. Otherwise, you can skip step 2.
    * sudo dnf install nginx
    * You'll need to setup your nginx as a reverse proxy. Change EXAMPLE and com to match the domain and tld (top-level domain) of your website. Save the text below in a file to /etc/nginx/conf.d/reverse_proxy.conf (or into your sites-enable/sites-available) hierarchy.
-   * The below code example will proxy requests for jenkins.example.com to localhost:8080, nexus.example.com to localhost:8081, etc. Setting up SSL would be similar, I'll leave that as an exercise to the user.
+   * The below code example will proxy requests for jenkins.example.com to localhost:8080, nexus.example.com to localhost:8081, etc. 
 ```
 map $subdomain $subdomain_port {
                default   8081;
@@ -60,5 +60,10 @@ firewall-cmd --reload
 #sudo firewall-cmd --add-service=ssh --permanent 
 #sudo firewall-cmd --reload  
 
-#Finally, you'll need to allow httpd to make connections on the Host Computer:  
+5. Finally, you'll need to allow httpd to make connections on the Host Computer:  
    * `sudo setsebool -P httpd_can_network_connect 1`
+6. If you are interested in securing your websites on the web. Setting up Secure Http with Let's Encrypt
+*`sudo dnf install certbot-nginx`
+*`sudo firewall-cmd --add-service=https`
+* `sudo certbot --nginx -d example.com -d www.example.com -d jenkins.example.com -d gitbucket.example.com -d nexus.example.com #change example to match your domain`
+
