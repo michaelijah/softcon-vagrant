@@ -45,11 +45,11 @@ server {
 ```
 sudo dnf install nfs-utils libnfsidmap
 sudo systemctl enable rpcbind
-sudo systemctl enable nfs-server
 sudo systemctl start rpcbind
 sudo systemctl start nfs-server
 sudo systemctl start rpc-statd
 sudo systemctl start nfs-idmapd
+sudo systemctl enable nfs-server
 #Configure the firewall to allow NFS connectivity
 firewall-cmd --permanent --add-service mountd
 firewall-cmd --permanent --add-service rpc-bind
