@@ -31,7 +31,7 @@ server {
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                #UNCOMMENT IF YOU DECIDE TO USE SETUP HTTPS# proxy_set_header X-Forwarded-Proto https; 
+                #UNCOMMENT IF YOU DECIDE TO USE SETUP HTTPS in Step 6# proxy_set_header X-Forwarded-Proto https; 
                 resolver 127.0.0.1 ipv6=off;
         }
 
@@ -64,7 +64,9 @@ firewall-cmd --reload
 5. Finally, you'll need to allow httpd to make connections on the Host Computer:  
    * `sudo setsebool -P httpd_can_network_connect 1`
 6. If you are interested in securing your websites on the web. Setting up Secure Http with Let's Encrypt
+* Uncomment proxy_set_header X-Forwarded-Proto https in /etc/nginx/conf.d/reverse_proxy.conf
 * `sudo dnf install certbot-nginx`
 * `sudo firewall-cmd --permanent --add-service=https`
-* `sudo certbot --nginx -d example.com -d www.example.com -d jenkins.example.com -d gitbucket.example.com -d nexus.example.com #change example to match your domain`
-
+* Change example.com in the following step to match your domain and top-level domain
+* `sudo certbot --nginx -d example.com -d www.example.com -d jenkins.example.com -d gitbucket.example.com -d nexus.example.com`
+* `sudo nginx -s reload`
