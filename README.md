@@ -65,8 +65,8 @@ firewall-cmd --reload
    * `sudo setsebool -P httpd_can_network_connect 1`
 6. If you are interested in securing your websites on the web. Setting up Secure Http with Let's Encrypt
    * Uncomment proxy_set_header X-Forwarded-Proto https in /etc/nginx/conf.d/reverse_proxy.conf
-  * `sudo dnf install certbot-nginx`
-  * `sudo firewall-cmd --permanent --add-service=https`
-  * Change example.com in the following step to match your domain and top-level domain
-  * `sudo certbot --nginx -d example.com -d www.example.com -d jenkins.example.com -d gitbucket.example.com -d nexus.example.com`
-  * `sudo nginx -s reload`
+   * `sudo dnf install certbot-nginx`
+   * `sudo firewall-cmd --permanent --add-service=https`
+   * Change example.com in the following step to match your domain and top-level domain
+   * `sudo certbot --nginx -d example.com -d www.example.com -d jenkins.example.com -d gitbucket.example.com -d nexus.example.com`
+   * `sudo nginx -s reload`
