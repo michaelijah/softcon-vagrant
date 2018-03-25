@@ -63,7 +63,7 @@ firewall-cmd --reload
 5. Finally, you'll need to allow httpd to make connections on the Host Computer:  
    * `sudo setsebool -P httpd_can_network_connect 1`
 6. If you are interested in securing your websites on the web. Setting up Secure Http with Let's Encrypt
-*`sudo dnf install certbot-nginx`
-*`sudo firewall-cmd --add-service=https`
+* `sudo dnf install certbot-nginx`
+* `sudo firewall-cmd --add-service=https`
 * `sudo certbot --nginx -d example.com -d www.example.com -d jenkins.example.com -d gitbucket.example.com -d nexus.example.com #change example to match your domain`
 
