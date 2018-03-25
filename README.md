@@ -51,22 +51,27 @@ sudo systemctl start nfs-server
 sudo systemctl start rpc-statd
 sudo systemctl start nfs-idmapd
 #Configure the firewall to allow NFS connectivity
-firewall-cmd --permanent --zone public --add-service mountd
-firewall-cmd --permanent --zone public --add-service rpc-bind
-firewall-cmd --permanent --zone public --add-service nfs
+firewall-cmd --permanent --add-service mountd
+firewall-cmd --permanent --add-service rpc-bind
+firewall-cmd --permanent --add-service nfs
 firewall-cmd --reload
-```
-
-#You may need to reopen ssh on the Host Computer:  
-#sudo firewall-cmd --add-service=ssh --permanent 
-#sudo firewall-cmd --reload  
-
+``` 
 5. Finally, you'll need to allow httpd to make connections on the Host Computer:  
    * `sudo setsebool -P httpd_can_network_connect 1`
-6. If you are interested in securing your websites on the web. Setting up Secure Http with Let's Encrypt
-   * Uncomment proxy_set_header X-Forwarded-Proto https in /etc/nginx/conf.d/reverse_proxy.conf
+   ***
+   **You can stop here if your vm won't be on the open internet**
+   ***
+6. You should consider securing your website if it is going to be served on the open web. Let's secure our HTTPS with Let's Encrypt
+   * Uncomment "proxy_set_header X-Forwarded-Proto https;" in the file you created in step 2 (/etc/nginx/conf.d/reverse_proxy.conf)
    * `sudo dnf install certbot-nginx`
    * `sudo firewall-cmd --permanent --add-service=https`
    * Change example.com in the following step to match your domain and top-level domain
    * `sudo certbot --nginx -d example.com -d www.example.com -d jenkins.example.com -d gitbucket.example.com -d nexus.example.com`
+   * Enter your email address
+   * Allow the Let's Encrypt to modify your conf files to redirect all traffic to https.
    * `sudo nginx -s reload`
+7. If you have set up an ssh server then you should open a port for the service
+   * You may need to reopen ssh on the Host Computer:  
+   * sudo firewall-cmd --add-service=ssh --permanent 
+   * sudo firewall-cmd --reload 
+   8. 
