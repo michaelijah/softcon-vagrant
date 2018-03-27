@@ -76,8 +76,8 @@ firewall-cmd --reload
 ***
 **Highway to the Danger Zone. With great convenience comes great danger. This section allows your vagrant box to start up without needing to enter passwords but can make your machine less secure. Consider locking your vagrantfile so that only root can edit it.**
 ***   
-8. Run the following command to all the vagrant user sudo privileges on your computer
-   * `echo %vagrant ALL=NOPASSWD:ALL | sudo visudo -f /etc/sudoers.d/vagrant`
+8. Run the following command to allow the vagrant user sudo privileges on your computer
+   * `echo %vagrant ALL=NOPASSWD:ALL | sudo EDITOR='tee -a' visudo -f /etc/sudoers.d/vagrant`
 9. Create and put the following text into a file named /etc/init.d/YOUR_SERVICE_NAME 
    * Replace YOUR_SERVICE_NAME with the desired name of your service
    * Replace path_to_vagrantfile with the path to your vagrantfile
