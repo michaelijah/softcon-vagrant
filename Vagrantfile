@@ -367,6 +367,7 @@ Vagrant.configure("2") do |config|
     # sudo echo 'run_as_user="nexus"' > $NEXUS_HOME/bin/nexus.rc
     su - nexus -c 'echo "run_as_user=nexus" > /opt/nexus/bin/nexus.rc' 
 
+    sudo cp /vagrant/etc/security/limits.conf /etc/security/limits.conf
     sudo cp /vagrant/etc/systemd/system/nexus.service /etc/systemd/system/nexus.service
     cd /etc/init.d
     sudo chkconfig --add nexus
