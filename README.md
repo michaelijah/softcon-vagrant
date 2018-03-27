@@ -73,4 +73,9 @@ firewall-cmd --reload
    * You may need to reopen ssh on the Host Computer:  
    * sudo firewall-cmd --add-service=ssh --permanent 
    * sudo firewall-cmd --reload 
-   8. 
+***
+**Highway to the Danger Zone. With great convenience comes great danger.**
+***   
+8. Run the following command to all the vagrant user sudo privileges on your computer
+   * `echo %vagrant ALL=NOPASSWD:ALL | sudo visudo -f /etc/sudoers.d/vagrant`
+9. Run the following command to have your Vagrant box start up when your host computer starts up.
