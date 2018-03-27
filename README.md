@@ -78,4 +78,48 @@ firewall-cmd --reload
 ***   
 8. Run the following command to all the vagrant user sudo privileges on your computer
    * `echo %vagrant ALL=NOPASSWD:ALL | sudo visudo -f /etc/sudoers.d/vagrant`
-9. Run the following command to have your Vagrant box start up when your host computer starts up.
+9. Create and put the following text into a file named /etc/init.d/YOUR_SERVICE_NAME 
+   * Replace YOUR_SERVICE_NAME with the desired name of your service
+   * Replace path_to_vagrantfile with the path to your vagrantfile
+```
+#!/bin/bash
+# chkconfig: 5 20 80
+# description: Start my vagrant instance at startup....
+
+# Source function library.
+. /etc/init.d/functions
+
+start() {
+    # code to start app comes here 
+    cd /path_to_vagrantfile && vagrant up;
+}
+
+stop() {
+    # code to stop app comes here 
+    cd /path_to_vagrantfile && vagrant up;
+}
+
+case "$1" in 
+    start)
+       start
+       ;;
+    stop)
+       stop
+       ;;
+    restart)
+       stop
+       start
+       ;;
+    status)
+       # code to check status of app comes here 
+       # example: status program_name
+       ;;
+    *)
+       echo "Usage: $0 {start|stop|status|restart}"
+esac
+
+exit 0 
+```
+10. Enable the startup script (replace YOUR_SERVICE_NAME with the desired name of your service from step 9)
+* chkconfig --add YOUR_SERVICE_NAME 
+* chkconfig --level 5 YOUR_SERVICE_NAME on
