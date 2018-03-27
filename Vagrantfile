@@ -52,7 +52,7 @@ Vagrant.configure("2") do |config|
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
-  config.vm.box_check_update = false
+  config.vm.box_check_update = true 
 
   # This is an optional plugin that, if installed, updates the host's /etc/hosts
   # file with the hostname of the guest VM. In Fedora it is packaged as
@@ -211,6 +211,12 @@ Vagrant.configure("2") do |config|
     groupadd -g #{MYSQL_GID} mysql
     useradd -c 'MySQL Server' -d /var/lib/mysql -g mysql -u #{MYSQL_UID} -s /sbin/nologin mysql
 
+    #Use selinux policy kit to make setting permissions for installed programs easier.
+    dnf install -y policycoreutils-devel
+    sudo semanage permissive -a usr_t
+    sudo semanage permissive -a var_t
+    sudo semanage permissive -a init_t
+    sudo semanage permissive -a fusefs_t
 
     #Create swap space if it doesn't exist
     echo "####################"
@@ -284,6 +290,7 @@ Vagrant.configure("2") do |config|
     else
       sudo rpm -i --excludepath /var/lib/gitbucket /var/lib/gitbucket-install/noarch/gitbucket*fc$VERSION_ID.noarch.rpm 
     fi
+    cat /vagrant/database.conf | sed 's/##REPLACEWITHSED##/#{MYSQL_PASSWORD}/' > /var/lib/gitbucket/database.conf
     sudo systemctl enable gitbucket
     sudo systemctl start gitbucket
 
@@ -295,12 +302,22 @@ Vagrant.configure("2") do |config|
     sudo dnf install -y http://dev.mysql.com/get/mysql57-community-release-fc$VERSION_ID-10.noarch.rpm
     sudo dnf install -y mysql-community-server
 
+    sudo semanage permissive -a mysqld_db_t
+    sudo semanage permissive -a mysqld_t
+
     echo "Sleeping 10 seconds to allow mysql to start"
-    sleep 10s
-    sudo systemctl start mysqld
     sudo systemctl enable mysqld
-    sleep 10s
+    sudo systemctl start mysqld
     TEMP_MYSQL_PASSWORD=$(grep -oP '(?<=A temporary password is generated for root@localhost: )(.*)' /var/log/mysqld.log)
+    while !(mysqladmin -ugitbucket -p'#{MYSQL_PASSWORD}' -h127.0.0.1 --silent ping)
+    do 
+      if [ mysqladmin -h 127.0.0.1 -u root -p"$TEMP_MYSQL_PASSWORD" --silent ping ]; then
+         break
+      fi
+      sleep 5s 
+      echo "Waiting 5s for mysql server to come online" 
+    done
+    echo "Attempting to setup mysql database"
     echo "SET PASSWORD = PASSWORD('#{MYSQL_PASSWORD}');" | mysql -h 127.0.0.1 -u root -p"$TEMP_MYSQL_PASSWORD" --connect-expired-password
     echo "create user gitbucket@127.0.0.1 identified by '#{MYSQL_PASSWORD}';" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
     echo "create database gitbucket;" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
@@ -309,18 +326,7 @@ Vagrant.configure("2") do |config|
     echo "flush privileges;" | mysql -h 127.0.0.1 -uroot -p'#{MYSQL_PASSWORD}'
    
 
-    #To allow changes to security policy for nexus
-    dnf install -y policycoreutils-devel
-
-    sudo semanage permissive -a usr_t
-    sudo semanage permissive -a var_t
-    sudo semanage permissive -a init_t
-    sudo semanage permissive -a fusefs_t
-    sudo semanage permissive -a mysqld_db_t
-    sudo semanage permissive -a mysqld_t
-
-
-    echo "#####################"
+    Echo "#####################"
     echo "#Setup Nexus"
     echo "#####################"
     echo "#"
@@ -394,7 +400,7 @@ Vagrant.configure("2") do |config|
 
   SHELL
   #This really should be implemented as a path-available block in systemd tied to the nfs/bindfs mounts. I don't know how to do that right now. So we'll just restat all the services when vagrant is brought up. 
-  config.vm.provision "shell", run: "always", inline: "sudo systemctl restart mysqld; sudo systemctl restart jenkins; sudo systemctl restart nexus; sleep 30s; sudo systemctl restart gitbucket"
+  config.vm.provision "shell", run: "always", inline: "sudo systemctl restart nginx; sudo systemctl restart mysqld; sudo systemctl restart jenkins; sudo systemctl restart nexus; sleep 30s; sudo systemctl restart gitbucket"
 end
 
 
