@@ -19,7 +19,7 @@ def ensure_plugins(plugins)
   end
   if result
    logger.warn('Reloading vagrant now that plugins are installed')
-   system("vagrant halt; vagrant up")
+   system("vagrant halt; vagrant up;")
    exit
   end
 end
