@@ -74,7 +74,7 @@ firewall-cmd --reload
    * sudo firewall-cmd --add-service=ssh --permanent 
    * sudo firewall-cmd --reload 
 ***
-**Highway to the Danger Zone. With great convenience comes great danger.**
+**Highway to the Danger Zone. With great convenience comes great danger. This section allows your vagrant box to start up without needing to enter passwords but can make your machine less secure. Consider locking your vagrantfile so that only root can edit it.**
 ***   
 8. Run the following command to all the vagrant user sudo privileges on your computer
    * `echo %vagrant ALL=NOPASSWD:ALL | sudo visudo -f /etc/sudoers.d/vagrant`
@@ -123,3 +123,5 @@ exit 0
 10. Enable the startup script (replace YOUR_SERVICE_NAME with the desired name of your service from step 9)
 * chkconfig --add YOUR_SERVICE_NAME 
 * chkconfig --level 5 YOUR_SERVICE_NAME on
+11. ***SUPER IMPORTANT*** Because vagrant can now run as sudo you should consider locking your vagrantfiles so that only root can write to them.
+   * `sudo chmod ugo-w /path_to_vagrantfile/Vagrantfile`
