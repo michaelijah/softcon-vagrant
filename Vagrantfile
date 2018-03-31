@@ -398,6 +398,7 @@ Vagrant.configure("2") do |config|
     sudo systemctl enable nginx
     sudo systemctl start nginx
 
+    sudo dnf install -y git
   SHELL
   #This really should be implemented as a path-available block in systemd tied to the nfs/bindfs mounts. I don't know how to do that right now. So we'll just restat all the services when vagrant is brought up. 
   config.vm.provision "shell", run: "always", inline: "sudo systemctl restart nginx; sudo systemctl restart mysqld; sudo systemctl restart jenkins; sudo systemctl restart nexus; sleep 30s; sudo systemctl restart gitbucket"
