@@ -164,8 +164,9 @@ Vagrant.configure("2") do |config|
   #
   #   # Customize the amount of memory on the VM:
     lv.memory = "2048"
+    lv.cpus = "4"
     lv.cpu_mode = "host-passthrough"
-    
+    lv.suspend_mode = "managedsave" 
   end
   
   #If the RAM available for VM (lv.memory) is less than 8GB then you should consider
