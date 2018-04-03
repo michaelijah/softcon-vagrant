@@ -24,10 +24,15 @@ server {
         listen 80;
         listen [::]:80;
 
+
         server_name ~^(?P<subdomain>.+)\.EXAMPLE\.com$;
+        
         # allow large uploads of files             
         client_max_body_size 1G;  
     
+        #Don't show version of nginx in use-hardening
+        sever_tokens off;
+        
         location / {
                 proxy_pass http://127.0.0.1:$subdomain_port;
                 proxy_set_header Host $host;
