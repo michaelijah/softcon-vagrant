@@ -78,7 +78,7 @@ firewall-cmd --reload
 5. Finally, you'll need to allow httpd to make connections on the Host Computer:  
    * `sudo setsebool -P httpd_can_network_connect 1`
    ***
-   **You can stop here if your vm won't be on the open internet**
+   **You can stop here if your vm won't be facing the open internet**
    ***
 6. You should consider securing your website if it is going to be served on the open web. Let's secure our HTTPS with Let's Encrypt
    * Uncomment "proxy_set_header X-Forwarded-Proto https;" in the file you created in step 2 (/etc/nginx/conf.d/reverse_proxy.conf)
@@ -93,4 +93,6 @@ firewall-cmd --reload
    * You may need to reopen ssh on the Host Computer:  
    * sudo firewall-cmd --add-service=ssh --permanent 
    * sudo firewall-cmd --reload 
+8. If you plan on enabling ssh access for gitbucket on its default port
+   * firewall-cmd --add-port=29418/tcp --permanent
 
