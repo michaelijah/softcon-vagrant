@@ -20,13 +20,18 @@ map $subdomain $subdomain_port {
                gitbucket 8082;
 }
 
-#Rate limits helps prevent brute forcing attacks
-#This limit_req_zone creates a zone name 'mylimit' whose requests
-#Are stored in a file up to 10 megabytes big
-#And it limits requests in this zone to 10 requests per second
-#This can help limit brute fore attacks
-limit_req_zone $binary_remote_addr zone=mylimit:10m rate=100r/s;
+geo $realip_remote_addr $use_limit_req_zone {
+        default $realip_remote_addr; #Default action is pass on real client ip
+        127.0.0.1 "";                #localhost
+        192.168.0.0/24 "";           #physical internal network
+        192.168.122.0/24 "";         #default virtual network
+}
 
+#Rate limit helps prevent brute forcing attacks (consider connection limiting too)
+#if $use_limit_req_zone is empty then no throttling occurs
+#If it contains an ip address of the client then limit requests based on client's real ip
+#10megabytes of cache. Limit to 50 requests per second.
+limit_req_zone $use_limit_req_zone zone=limit:10m rate=50r/s;
 
 server {
         listen 80;
@@ -41,7 +46,10 @@ server {
         #Don't show version of nginx in use - (harder to attack if version of nginx is unknown)
         sever_tokens off;
         
-        #Limit the rate that 
+        #Use the limit zone parameters defined above. 
+        #Allow an additional 100 requests to queue over the 50 per second. 
+        #Attempt serve them back with no delay (no FIFO)
+        limit_req zone=limit burst=100 nodelay;
         
         location / {
                 #Add example.com to the mylimit zone. Allow an additional 100 requests 
