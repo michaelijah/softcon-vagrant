@@ -20,15 +20,41 @@ map $subdomain $subdomain_port {
                gitbucket 8082;
 }
 
+geo $realip_remote_addr $use_limit_req_zone {
+        default $realip_remote_addr; #Default action is pass on real client ip
+        127.0.0.1 "";                #localhost
+        192.168.0.0/24 "";           #physical internal network
+        192.168.122.0/24 "";         #default virtual network
+}
+
+#Rate limit helps prevent brute forcing attacks (consider connection limiting too)
+#if $use_limit_req_zone is empty then no throttling occurs
+#If it contains an ip address of the client then limit requests based on client's real ip
+#10megabytes of cache. Limit to 50 requests per second.
+limit_req_zone $use_limit_req_zone zone=limit:10m rate=50r/s;
+
 server {
         listen 80;
         listen [::]:80;
 
+
         server_name ~^(?P<subdomain>.+)\.EXAMPLE\.com$;
+        
         # allow large uploads of files             
         client_max_body_size 1G;  
     
+        #Don't show version of nginx in use - (harder to attack if version of nginx is unknown)
+        sever_tokens off;
+        
+        #Use the limit zone parameters defined above. 
+        #Allow an additional 100 requests to queue over the 50 per second. 
+        #Attempt serve them back with no delay (no FIFO)
+        limit_req zone=limit burst=100 nodelay;
+        
         location / {
+                #Add example.com to the mylimit zone. Allow an additional 100 requests 
+                #(burstiness) on top of defined rate before attempting to throttle
+                limit_req zone=mylimit burst=100 nodelay;
                 proxy_pass http://127.0.0.1:$subdomain_port;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
@@ -60,7 +86,7 @@ firewall-cmd --reload
 5. Finally, you'll need to allow httpd to make connections on the Host Computer:  
    * `sudo setsebool -P httpd_can_network_connect 1`
    ***
-   **You can stop here if your vm won't be on the open internet**
+   **You can stop here if your vm won't be facing the open internet**
    ***
 6. You should consider securing your website if it is going to be served on the open web. Let's secure our HTTPS with Let's Encrypt
    * Uncomment "proxy_set_header X-Forwarded-Proto https;" in the file you created in step 2 (/etc/nginx/conf.d/reverse_proxy.conf)
@@ -75,4 +101,6 @@ firewall-cmd --reload
    * You may need to reopen ssh on the Host Computer:  
    * sudo firewall-cmd --add-service=ssh --permanent 
    * sudo firewall-cmd --reload 
+8. If you plan on enabling ssh access for gitbucket on its default port
+   * firewall-cmd --add-port=29418/tcp --permanent
 
