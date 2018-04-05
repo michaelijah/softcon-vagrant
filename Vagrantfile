@@ -40,14 +40,14 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  #config.vm.box = "fedora/27-cloud-base"
-  #config.vm.box_url = "https://download.fedoraproject.org/pub/fedora/linux/releases"\
-  #                    "/27/CloudImages/x86_64/images/Fedora-Cloud-Base-Vagrant"\
-  #                    "-27-1.6.x86_64.vagrant-libvirt.box"
-  config.vm.box = "fedora/26-cloud-base"
-  config.vm.box_url = "http://mirror.us.leaseweb.net/fedora/linux/releases"\
-                      "/26/CloudImages/x86_64/images/"\
-                      "Fedora-Cloud-Base-Vagrant-26-1.5.x86_64.vagrant-libvirt.box"
+  config.vm.box = "fedora/27-cloud-base"
+  config.vm.box_url = "https://download.fedoraproject.org/pub/fedora/linux/releases"\
+                      "/27/CloudImages/x86_64/images/Fedora-Cloud-Base-Vagrant"\
+                      "-27-1.6.x86_64.vagrant-libvirt.box"
+  #config.vm.box = "fedora/26-cloud-base"
+  #config.vm.box_url = "http://mirror.us.leaseweb.net/fedora/linux/releases"\
+  #                    "/26/CloudImages/x86_64/images/"\
+  #                    "Fedora-Cloud-Base-Vagrant-26-1.5.x86_64.vagrant-libvirt.box"
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
@@ -84,6 +84,8 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 8081, host: 8081, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0"
   #For gitbucket
   config.vm.network "forwarded_port", guest: 8082, host: 8082, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0" 
+  #For default port for gitbucket ssh
+  config.vm.network "forwarded_port", guest: 29418, host: 29418, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0" 
   #For jenkins
   config.vm.network "forwarded_port", guest: 8080, host: 8080, protocol: "tcp", auto_correct: true, host_ip: "0.0.0.0" 
   
@@ -110,28 +112,33 @@ Vagrant.configure("2") do |config|
   NEXUS_UID = 10011
   NEXUS_GID = 10011
   Dir.mkdir('nexus-install') unless File.exists?('nexus-install')
-  config.vm.synced_folder "nexus-install", "/nexus-install-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
+  File.chmod(0777,'nexus-install')
+  config.vm.synced_folder "nexus-install", "/nexus-install-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
   config.bindfs.bind_folder "/nexus-install-nfs", "/var/lib/nexus-install", :owner => "#{NEXUS_UID}", :group => "#{NEXUS_GID}", o: "nonempty"
   Dir.mkdir('nexus') unless File.exists?('nexus')
-  config.vm.synced_folder "nexus", "/nexus-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
+  File.chmod(0777,'nexus')
+  config.vm.synced_folder "nexus", "/nexus-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
   config.bindfs.bind_folder "/nexus-nfs", "/opt/nexus", :owner => "#{NEXUS_UID}", :group => "#{NEXUS_GID}", o: "nonempty"
   Dir.mkdir('sonatype-work') unless File.exists?('sonatype-work')
-  config.vm.synced_folder "sonatype-work", "/sonatype-work-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
+  File.chmod(0777, 'sonatype-work')
+  config.vm.synced_folder "sonatype-work", "/sonatype-work-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','root_squash','async','anonuid='"#{NEXUS_UID}", 'anongid='"#{NEXUS_GID}"]
   config.bindfs.bind_folder "/sonatype-work-nfs", "/opt/sonatype-work", :owner => "#{NEXUS_UID}", :group => "#{NEXUS_GID}", o: "nonempty"
   
   GITBUCKET_UID = 10001
   GITBUCKET_GID = 10001
   Dir.mkdir('gitbucket-home') unless File.exists?('gitbucket-home')
-  config.vm.synced_folder "gitbucket-home", "/gitbucket-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
+  File.chmod(0777, 'gitbucket-home')
+  config.vm.synced_folder "gitbucket-home", "/gitbucket-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','root_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
   config.bindfs.bind_folder "/gitbucket-nfs", "/var/lib/gitbucket", :owner => "#{GITBUCKET_UID}", :group => "#{GITBUCKET_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=rwx:o=rwx", :'create-with-perms' => "u=rwx:g=rwx:o=rwx", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
   Dir.mkdir('gitbucket-install') unless File.exists?('gitbucket-install')
-  config.vm.synced_folder "gitbucket-install", "/gitbucket-install-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
+  config.vm.synced_folder "gitbucket-install", "/gitbucket-install-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','root_squash','async','anonuid='"#{GITBUCKET_UID}", 'anongid='"#{GITBUCKET_GID}"]
   config.bindfs.bind_folder "/gitbucket-install-nfs", "/var/lib/gitbucket-install", :owner => "#{GITBUCKET_UID}", :group => "#{GITBUCKET_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=rwx:o=rwx", :'create-with-perms' => "u=rwx:g=rwx:o=rwx", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
 
   JENKINS_UID = 10002 
   JENKINS_GID = 10002
   Dir.mkdir('jenkins') unless File.exists?('jenkins')
-  config.vm.synced_folder "jenkins", "/jenkins-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{JENKINS_UID}", 'anongid='"#{JENKINS_GID}"]
+  File.chmod(0777,'jenkins')
+  config.vm.synced_folder "jenkins", "/jenkins-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','root_squash','async','anonuid='"#{JENKINS_UID}", 'anongid='"#{JENKINS_GID}"]
   config.bindfs.bind_folder "/jenkins-nfs", "/var/lib/jenkins", :owner => "#{JENKINS_UID}", :group => "#{JENKINS_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=rwx:o=rwx", :'create-with-perms' => "u=rwx:g=rwx:o=rwx", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
 
   Dir.mkdir('eatmydata-install') unless File.exists?('eatmydata-install')
@@ -145,7 +152,8 @@ Vagrant.configure("2") do |config|
   MYSQL_GID = 27 
   MYSQL_PASSWORD = 'G|tbuck3t' #This needs to have 1 Capital, 1 lower, 1 number and 1special character...! doesn't seem to work well
   Dir.mkdir('mysql') unless File.exists?('mysql')
-  config.vm.synced_folder "mysql", "/mysql-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','no_root_squash','async','anonuid='"#{MYSQL_UID}", 'anongid='"#{MYSQL_GID}"]
+  File.chmod(0777,'mysql')
+  config.vm.synced_folder "mysql", "/mysql-nfs", :nfs => true, create: true, nfs_udp: false, nfs_version: 4, linux__nfs_options: ['rw','no_subtree_check','root_squash','async','anonuid='"#{MYSQL_UID}", 'anongid='"#{MYSQL_GID}"]
   config.bindfs.bind_folder "/mysql-nfs", "/var/lib/mysql", :owner => "#{MYSQL_UID}", :group => "#{MYSQL_GID}", o: "nonempty", :'create-as-user' => true, :perms => "u=rwx:g=:o=", :'create-with-perms' => "u=rwx:g=:o=", :'chown-ignore' => true, :'chgrp-ignore' => true, :'chmod-ignore' => true
   
 
@@ -166,7 +174,6 @@ Vagrant.configure("2") do |config|
     lv.memory = "2048"
     lv.cpus = "4"
     lv.cpu_mode = "host-passthrough"
-    lv.suspend_mode = "managedsave" 
   end
   
   #If the RAM available for VM (lv.memory) is less than 8GB then you should consider
