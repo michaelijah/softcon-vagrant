@@ -8,7 +8,7 @@ THIS VIRTUALIZATION USES NFS. NFS IS ONLY COMPATIBLE WITH A WINDOWS HOST BY USIN
 
 1. Install Vagrant `sudo dnf install vagrant` and Install libvirt `sudo dnf install libvirt`
 2. If you plan on unleashing your creation onto the open internet then you'll need to install nginx. Otherwise, you can skip step 2.
-   * sudo dnf install nginx
+   * `sudo dnf install nginx`
    * You'll need to setup your nginx as a reverse proxy. Change EXAMPLE and com to match the domain and tld (top-level domain) of your website. Save the text below in a file to /etc/nginx/conf.d/reverse_proxy.conf (or into your sites-enable/sites-available) hierarchy.
    * The below code example will proxy requests for jenkins.example.com to localhost:8080, nexus.example.com to localhost:8081, etc. 
 ```
