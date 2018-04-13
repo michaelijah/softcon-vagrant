@@ -6,8 +6,9 @@ You'll need to do a couple of things to prep your system for use.
 
 THIS VIRTUALIZATION USES NFS. NFS IS ONLY COMPATIBLE WITH A WINDOWS HOST BY USING A 3RD PARTY PLUGIN
 
-1. Install Vagrant `sudo dnf install vagrant` and Install libvirt `sudo dnf install libvirt`
-2. If you plan on unleashing your creation onto the open internet then you'll need to install nginx. Otherwise, you can skip step 2.
+1. Install Vagrant `sudo dnf install vagrant`
+2. Install libvirt `sudo dnf install virt-install libvirt-python virt-manager virt-install libvirt-client`
+3. If you plan on unleashing your creation onto the open internet then you'll need to install nginx. Otherwise, you can skip step 3.
    * `sudo dnf install nginx`
    * You'll need to setup your nginx as a reverse proxy. Change EXAMPLE and com to match the domain and tld (top-level domain) of your website. Save the text below in a file to /etc/nginx/conf.d/reverse_proxy.conf (or into your sites-enable/sites-available) hierarchy.
    * The below code example will proxy requests for jenkins.example.com to localhost:8080, nexus.example.com to localhost:8081, etc. 
@@ -64,10 +65,10 @@ server {
 
 }
 ```
-   3. You'll need to open the http port on the Host Computer. In fedora, run:  
+   4. You'll need to open the http port on the Host Computer. In fedora, run:  
    * `sudo firewall-cmd --add-service=http --permanent`
    * `sudo firewall-cmd --reload`
-   4. You need to install and setup NFS (networked file system). The vagrant community offers a few plugins but they are outdated, unsupported, and abandoned. The best thing to do is to install and setup NFS onto the host operating system.
+   5. You need to install and setup NFS (networked file system). The vagrant community offers a few plugins but they are outdated, unsupported, and abandoned. The best thing to do is to install and setup NFS onto the host operating system.
    * The following instructions were shamelessly pilfered from https://www.itzgeek.com/how-tos/linux/centos-how-tos/how-to-setup-nfs-server-on-centos-7-rhel-7-fedora-22.html. Plese visit them to show your support!
 ```
 sudo dnf install nfs-utils libnfsidmap
@@ -83,12 +84,12 @@ firewall-cmd --permanent --add-service rpc-bind
 firewall-cmd --permanent --add-service nfs
 firewall-cmd --reload
 ``` 
-5. Finally, you'll need to allow httpd to make connections on the Host Computer:  
+6. Finally, you'll need to allow httpd to make connections on the Host Computer:  
    * `sudo setsebool -P httpd_can_network_connect 1`
    ***
    **You can stop here if your vm won't be facing the open internet**
    ***
-6. You should consider securing your website if it is going to be served on the open web. Let's secure our HTTPS with Let's Encrypt
+7. You should consider securing your website if it is going to be served on the open web. Let's secure our HTTPS with Let's Encrypt
    * Uncomment "proxy_set_header X-Forwarded-Proto https;" in the file you created in step 2 (/etc/nginx/conf.d/reverse_proxy.conf)
    * `sudo dnf install certbot-nginx`
    * `sudo firewall-cmd --permanent --add-service=https`
@@ -97,10 +98,10 @@ firewall-cmd --reload
    * Enter your email address
    * Allow the Let's Encrypt to modify your conf files to redirect all traffic to https.
    * `sudo nginx -s reload`
-7. If you have set up an ssh server then you should open a port for the service
+8. If you have set up an ssh server then you should open a port for the service
    * You may need to reopen ssh on the Host Computer:  
    * sudo firewall-cmd --add-service=ssh --permanent 
    * sudo firewall-cmd --reload 
-8. If you plan on enabling ssh access for gitbucket on its default port
+9. If you plan on enabling ssh access for gitbucket on its default port
    * firewall-cmd --add-port=29418/tcp --permanent
 
