@@ -45,7 +45,7 @@ server {
         client_max_body_size 1G;  
     
         #Don't show version of nginx in use - (harder to attack if version of nginx is unknown)
-        sever_tokens off;
+        server_tokens off;
         
         #Use the limit zone parameters defined above. 
         #Allow an additional 100 requests to queue over the 50 per second. 
